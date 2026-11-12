@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "growthpulse"
+version = "1.0.0"
+description = "End-to-end growth analytics portfolio project (synthetic SaaS data + optional GA4/BigQuery/dbt)"
+requires-python = ">=3.11"
+dependencies = []   # runtime deps are pinned in requirements.txt
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = ["slow: end-to-end tests that run dbt (deselect with -m 'not slow')"]
+filterwarnings = ["ignore::DeprecationWarning", "ignore::FutureWarning"]

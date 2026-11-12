@@ -1,0 +1,42 @@
+# --- secrets: NEVER commit these ---
+.env
+.env.*
+!.env.example
+*service-account*.json
+*credentials*.json
+*keyfile*.json
+*.pem
+*.p12
+gcloud/
+.config/gcloud/
+
+# --- generated data and artefacts (regenerate with scripts/run_pipeline.py) ---
+data/raw/*.csv
+data/raw/_*.json
+data/processed/*
+!data/processed/.gitkeep
+!data/raw/.gitkeep
+*.duckdb
+*.duckdb.wal
+dbt_project/target/
+dbt_project/dbt_packages/
+dbt_project/logs/
+logs/
+
+# --- python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# --- OS / editor ---
+.DS_Store
+.vscode/*
+!.vscode/settings.json
+
+# --- generated each run (committed samples live in reports/example/) ---
+reports/*.md
+dashboard/web/dashboard_fragment.html
