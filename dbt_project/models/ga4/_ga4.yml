@@ -1,0 +1,25 @@
+version: 2
+models:
+  - name: stg_ga4_events
+    description: >
+      GA4 public sample events (REAL data, BigQuery only, UNVERIFIED here). Grain: one row per event. Incremental by event_date
+      partition with a 3-day lookback.
+    columns:
+      - {name: event_date, tests: [not_null]}
+      - {name: event_name, tests: [not_null]}
+      - {name: user_pseudo_id, tests: [not_null]}
+  - name: int_ga4_sessions
+    description: "Grain: one row per session (user_pseudo_id x ga_session_id)."
+    columns:
+      - {name: session_key, tests: [unique, not_null]}
+  - name: fct_ga4_orders
+    description: "Grain: one row per de-duplicated transaction_id."
+    columns:
+      - {name: transaction_id, tests: [unique, not_null]}
+      - {name: revenue_usd, tests: [non_negative]}
+  - name: mart_ga4_funnel
+    description: "Grain: session_date x first_user_medium x device_category. Session counts per funnel event."
+    tests:
+      - expression_is_true: {expression: "sessions_view_item <= sessions and sessions_add_to_cart <= sessions and sessions_begin_checkout <= sessions and sessions_purchase <= sessions"}
+  - name: mart_ga4_channel_performance
+    description: "Grain: first_user_source x first_user_medium. First-touch only; no spend available in GA4 sample."
