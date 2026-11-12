@@ -1,0 +1,5 @@
+Test,Test name,Channel,Design,Lift,Lift CI low,Lift CI high,p-value,Significant,Attributed ROAS,Incremental ROAS,Verdict
+EXP-001,Paid social lookalike holdout,Paid social,User-level holdout,0.2147,0.0911,0.3524,0.0004,Yes,1.2154,0.2174,Positive incremental effect detected (CI excludes zero).
+EXP-002,Display prospecting holdout,Display,User-level holdout,-0.0088,-0.1116,0.106,0.8749,No,1.3834,-0.013,Inconclusive: no significant effect. The data cannot distinguish zero from effects up to about +10% relative.
+EXP-003,Affiliate coupon pilot (small),Affiliate,User-level holdout,0.2751,-0.0459,0.704,0.0996,No,1.7306,0.439,Inconclusive: no significant effect. The data cannot distinguish zero from effects up to about +61% relative.
+GEO-001,Paid search non-brand geo holdout,Paid search,Geo holdout (diff-in-diff),0.1245,0.058,0.191,0.0006,Yes,,0.8491,Positive incremental effect (cluster-robust and randomisation tests agree).

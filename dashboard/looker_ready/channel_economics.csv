@@ -1,0 +1,9 @@
+Channel,Channel type,Spend,New customers,CAC,Loaded CAC,12-mo revenue per customer,Monthly churn,36-mo GP LTV,LTV to CAC,Payback months,Recommendation
+Paid search,Paid,665200.79,1950,341.1286,479.4643,1223.309,0.0373,1948.7085,4.0643,6.0,Scale (test first)
+Paid social,Paid,537076.39,656,818.714,1115.9121,768.498,0.0488,1148.9352,1.0296,31.0,Reduce & fix
+Display,Paid,255094.71,230,1109.1074,1509.3546,642.3401,0.0747,801.3273,0.5309,,Cut or re-test
+Affiliate,Paid,201126.41,465,432.5299,575.664,512.354,0.0793,654.7382,1.1374,22.0,Reduce & fix
+Organic search,Organic & owned,0.0,2020,,,1270.8267,0.032,2116.0412,,,Organic / owned
+Direct,Organic & owned,0.0,1677,,,1402.1576,0.03,2327.2987,,,Organic / owned
+Referral,Organic & owned,0.0,628,,,1370.1116,0.025,2383.3014,,,Organic / owned
+Email,Organic & owned,0.0,616,,,1134.5488,0.0243,1992.8436,,,Organic / owned
