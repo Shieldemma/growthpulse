@@ -1,0 +1,30 @@
+version: 2
+models:
+  - name: int_month_index
+    description: "Number spine 0..max_month_index."
+    columns: [{name: month_index, tests: [unique, not_null]}]
+  - name: int_sessions
+    description: "Grain: one row per session, with channel names and per-visitor order."
+    columns:
+      - {name: session_id, tests: [unique, not_null]}
+      - {name: session_ordinal, tests: [not_null]}
+  - name: int_visitors
+    description: "Grain: one row per visitor. First-touch attributes and funnel-reach flags."
+    columns:
+      - {name: visitor_id, tests: [unique, not_null]}
+      - {name: first_channel_name, tests: [not_null]}
+  - name: int_customer_acquisition
+    description: "Grain: one row per customer. Signup, trial and paid conversion joined to first touch."
+    columns:
+      - {name: customer_id, tests: [unique, not_null]}
+      - {name: is_paying, tests: [{accepted_values: {values: [0, 1], quote: false}}]}
+      - {name: days_signup_to_paid, tests: [non_negative]}
+  - name: int_touchpoints
+    description: "Grain: customer_id x session_id inside the lookback window."
+    columns:
+      - {name: customer_id, tests: [not_null, {relationships: {to: ref('int_customer_acquisition'), field: customer_id}}]}
+  - name: int_attribution_credit
+    description: "Grain: customer x attribution_model x touchpoint. Credits per customer-model sum to 1."
+    columns:
+      - {name: attribution_model, tests: [{accepted_values: {values: [first_touch, last_touch, linear, position_based]}}]}
+      - {name: credit, tests: [{between_values: {lo: 0, hi: 1}}]}
