@@ -34,8 +34,7 @@ venv/
 
 # --- OS / editor ---
 .DS_Store
-.vscode/*
-!.vscode/settings.json
+.vscode/
 
 # --- generated each run (committed samples live in reports/example/) ---
 reports/*.md
