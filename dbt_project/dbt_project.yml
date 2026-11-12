@@ -1,0 +1,41 @@
+name: growthpulse
+version: "1.0.0"
+config-version: 2
+profile: growthpulse
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+clean-targets: ["target", "dbt_packages"]
+
+# Project-wide variables. Override on the command line, e.g.
+#   dbt build --vars '{"data_end_date": "2025-12-28"}'
+vars:
+  data_end_date: "2025-12-28"        # last day of SYNTHETIC data (the pipeline passes the true value from metadata)
+  gross_margin: 0.80                 # ASSUMPTION used for gross-profit metrics
+  attribution_lookback_days: 45      # exceeds the longest synthetic journey; GA4 defaults are 30-90 days
+  max_month_index: 36
+  # GA4 public sample (BigQuery mode only)
+  ga4_start_date: "20201101"
+  ga4_end_date: "20210131"
+  ga4_funnel_events: ["session_start", "view_item", "add_to_cart", "begin_checkout", "purchase"]
+
+models:
+  growthpulse:
+    staging:
+      +materialized: view
+      +schema: staging
+    intermediate:
+      +materialized: table
+      +schema: intermediate
+    marts:
+      +materialized: table
+      +schema: marts
+    reporting:
+      # BI-facing layer: flat, denormalised, SUM-friendly tables that Looker Studio / Power BI read directly.
+      +materialized: table
+      +schema: reporting
+    ga4:
+      # GA4 models only exist on BigQuery: the public sample is not available to DuckDB.
+      +enabled: "{{ target.type == 'bigquery' }}"
+      +schema: ga4

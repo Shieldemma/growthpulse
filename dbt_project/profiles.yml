@@ -1,0 +1,23 @@
+# dbt connection profiles. NO SECRETS live in this file - everything comes from environment variables.
+#   Local demo (default):   dbt build                       (DuckDB file, no account needed)
+#   BigQuery:               DBT_TARGET=bigquery dbt build   (needs GCP_PROJECT_ID + authentication, see docs/bigquery_setup.md)
+growthpulse:
+  target: "{{ env_var('DBT_TARGET', 'duckdb') }}"
+  outputs:
+    duckdb:
+      type: duckdb
+      path: "{{ env_var('GP_DUCKDB_PATH', '../data/processed/growthpulse.duckdb') }}"
+      schema: gp
+      threads: 4
+    bigquery:
+      type: bigquery
+      # oauth = your own login via `gcloud auth application-default login` (recommended, no key file).
+      # service-account = keyfile path in GOOGLE_APPLICATION_CREDENTIALS (keep the file OUTSIDE this repo).
+      method: "{{ env_var('GP_BQ_AUTH_METHOD', 'oauth') }}"
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      dataset: "{{ env_var('GP_BQ_DATASET', 'growthpulse') }}"
+      location: "{{ env_var('GP_BQ_LOCATION', 'US') }}"   # must be US to read the public GA4 sample
+      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS', '') }}"
+      threads: 4
+      job_execution_timeout_seconds: 600
+      maximum_bytes_billed: "{{ env_var('GP_BQ_MAX_BYTES_BILLED', '10000000000') | int }}"   # 10 GB safety cap per query
