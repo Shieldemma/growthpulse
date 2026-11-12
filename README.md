@@ -48,6 +48,16 @@ I built this against the responsibilities in a Senior Growth Data Analyst postin
 | Automation | One-command pipeline, scheduled BigQuery refresh workflow, a weekly insight brief and a guard-railed LLM prompt that may only use computed numbers. | [`run_pipeline.py`](scripts/run_pipeline.py) · [`insights.py`](src/growthpulse/insights.py) |
 | Governance | Data dictionary, analytics standards, tracking plan for server-side event streaming, data-freshness table. | [`docs/`](docs) |
 
+## Looker Studio report
+
+Two pages built on the same BI exports: an executive overview and an incrementality & budget page. [Open the report](https://datastudio.google.com/reporting/2f3edcc5-b54e-4ac4-a770-fde083e9f55f).
+
+| Executive overview | Incrementality & budget |
+|---|---|
+| ![Looker Studio executive overview](docs/assets/looker_overview.png) | ![Looker Studio incrementality page](docs/assets/looker_incrementality.png) |
+
+The report's extra data sources are in [`dashboard/looker_ready/`](dashboard/looker_ready) (tidy CSVs with readable column names, plus the header banners).
+
 ## Screens
 
 | Unit economics | Attribution vs incrementality | MMM & budget |
