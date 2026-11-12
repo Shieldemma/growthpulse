@@ -1,0 +1,41 @@
+version: 2
+models:
+  - name: rpt_dim_date
+    description: "BI dimension. Grain: one row per calendar day (unique date_day)."
+    columns: [{name: date_day, tests: [unique, not_null]}]
+  - name: rpt_dim_channel
+    description: "BI dimension. Grain: one row per channel."
+    columns: [{name: channel_name, tests: [unique, not_null]}]
+  - name: rpt_dim_campaign
+    description: "BI dimension. Grain: one row per campaign (+ 'none')."
+    columns: [{name: campaign_id, tests: [unique, not_null]}]
+  - name: rpt_marketing_daily
+    description: "BI fact, first-touch. Grain: metric_date x channel_name x campaign_id. SUM-friendly; use *_eligible_* columns for censoring-safe ROAS/LTV."
+    columns:
+      - {name: spend_usd, tests: [non_negative]}
+      - {name: channel_name, tests: [not_null, {relationships: {to: ref('rpt_dim_channel'), field: channel_name}}]}
+      - {name: campaign_id, tests: [{relationships: {to: ref('rpt_dim_campaign'), field: campaign_id}}]}
+      - {name: metric_date, tests: [{relationships: {to: ref('rpt_dim_date'), field: date_day}}]}
+  - name: rpt_unit_economics_monthly
+    description: "BI fact, first-touch. Grain: acquisition_month x channel_name. CAC, ROAS and LTV inputs."
+    columns:
+      - {name: channel_name, tests: [{relationships: {to: ref('rpt_dim_channel'), field: channel_name}}]}
+  - name: rpt_attribution_monthly
+    description: "BI fact. Grain: month_start x attribution_model x channel_name."
+    columns:
+      - {name: attribution_model, tests: [{accepted_values: {values: [first_touch, last_touch, linear, position_based]}}]}
+  - name: rpt_funnel_daily
+    description: "BI fact. Grain: first_session_date x channel x campaign x device."
+    columns:
+      - {name: channel_name, tests: [{relationships: {to: ref('rpt_dim_channel'), field: channel_name}}]}
+  - name: rpt_retention_cohort
+    description: "BI fact. Grain: cohort_month x channel x months_since_start."
+    columns:
+      - {name: retention_rate, tests: [{between_values: {lo: 0, hi: 1}}]}
+  - name: rpt_mmm_weekly
+    description: "BI fact. Grain: week_start."
+    columns: [{name: week_start, tests: [unique, not_null]}]
+  - name: rpt_customers
+    description: "BI fact. Grain: one row per customer."
+    columns:
+      - {name: customer_id, tests: [unique, not_null]}
