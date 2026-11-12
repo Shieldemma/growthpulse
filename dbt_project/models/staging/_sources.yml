@@ -1,0 +1,39 @@
+version: 2
+
+sources:
+  # ---- SYNTHETIC SaaS data (loaded by scripts/load_raw.py locally, or scripts/load_to_bigquery.py in the cloud) ----
+  - name: growthpulse_raw
+    description: >
+      SYNTHETIC raw tables produced by src/growthpulse/datagen. They are not real company data.
+      Locally they live in DuckDB schema `raw`; in BigQuery in the dataset named by GP_BQ_RAW_DATASET.
+    schema: "{{ 'raw' if target.type == 'duckdb' else env_var('GP_BQ_RAW_DATASET', 'growthpulse_raw') }}"
+    tables:
+      - name: channels
+      - name: campaigns
+      - name: ad_spend_daily
+      - name: marketing_overhead_monthly
+      - name: promotions
+      - name: plans
+      - name: sessions
+      - name: events
+      - name: customers
+      - name: subscriptions
+      - name: payments
+      - name: refunds
+      - name: experiment_catalog
+      - name: experiment_assignments
+      - name: geo_experiment_catalog
+      - name: geo_daily_outcomes
+      - name: lifecycle_experiment_catalog
+      - name: lifecycle_experiment_users
+
+  # ---- REAL public GA4 sample (BigQuery only) ----
+  - name: ga4
+    description: >
+      Google Analytics 4 obfuscated sample e-commerce export (Google Merchandise Store, 2020-11-01 .. 2021-01-31).
+      One row per event, sharded in daily tables events_YYYYMMDD. Contains NO subscriptions and NO ad cost.
+    database: bigquery-public-data
+    schema: ga4_obfuscated_sample_ecommerce
+    tables:
+      - name: events
+        identifier: "events_*"

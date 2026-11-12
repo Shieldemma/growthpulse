@@ -1,0 +1,94 @@
+version: 2
+models:
+  - name: stg_channels
+    description: "Channels. Grain: one row per channel."
+    columns:
+      - {name: channel_id, tests: [unique, not_null]}
+      - {name: channel_name, tests: [not_null, {accepted_values: {values: [paid_search, paid_social, display, affiliate, organic_search, email, referral, direct]}}]}
+      - {name: is_paid, tests: [{accepted_values: {values: [0, 1], quote: false}}]}
+  - name: stg_campaigns
+    description: "Paid campaigns. Grain: one row per campaign."
+    columns:
+      - {name: campaign_id, tests: [unique, not_null]}
+      - {name: channel_id, tests: [{relationships: {to: ref('stg_channels'), field: channel_id}}]}
+  - name: stg_ad_spend
+    description: "Platform-reported daily spend. Grain: spend_date x campaign_id."
+    columns:
+      - {name: spend_usd, tests: [not_null, non_negative]}
+      - {name: clicks, tests: [non_negative]}
+      - {name: campaign_id, tests: [{relationships: {to: ref('stg_campaigns'), field: campaign_id}}]}
+  - name: stg_overhead
+    description: "Monthly non-media marketing costs (fully loaded CAC)."
+    columns:
+      - {name: cost_category, tests: [{accepted_values: {values: [team_salaries, tools, agency_fees, creative_production]}}]}
+      - {name: cost_usd, tests: [non_negative]}
+  - name: stg_promotions
+    columns:
+      - {name: promo_id, tests: [unique, not_null]}
+  - name: stg_plans
+    columns:
+      - {name: plan_id, tests: [unique, not_null]}
+      - {name: monthly_price_usd, tests: [non_negative]}
+  - name: stg_sessions
+    description: "Website sessions. Grain: one row per session."
+    columns:
+      - {name: session_id, tests: [unique, not_null]}
+      - {name: visitor_id, tests: [not_null]}
+      - {name: channel_id, tests: [{relationships: {to: ref('stg_channels'), field: channel_id}}]}
+      - {name: device_category, tests: [{accepted_values: {values: [desktop, mobile, tablet]}}]}
+  - name: stg_events
+    description: "Funnel events beyond session_start. Grain: one row per event."
+    columns:
+      - {name: event_id, tests: [unique, not_null]}
+      - {name: session_id, tests: [{relationships: {to: ref('stg_sessions'), field: session_id}}]}
+      - {name: event_name, tests: [{accepted_values: {values: [view_pricing, signup_start, signup_complete, trial_start]}}]}
+  - name: stg_customers
+    description: "Accounts created. Grain: one row per customer."
+    columns:
+      - {name: customer_id, tests: [unique, not_null]}
+      - {name: visitor_id, tests: [unique, not_null]}
+  - name: stg_subscriptions
+    description: "Paid subscriptions. Grain: one per paying customer."
+    columns:
+      - {name: subscription_id, tests: [unique, not_null]}
+      - {name: customer_id, tests: [unique, not_null, {relationships: {to: ref('stg_customers'), field: customer_id}}]}
+      - {name: plan_id, tests: [{relationships: {to: ref('stg_plans'), field: plan_id}}]}
+      - {name: discount_pct, tests: [{between_values: {lo: 0, hi: 1}}]}
+  - name: stg_payments
+    description: "Successful payments. Grain: one row per payment."
+    columns:
+      - {name: payment_id, tests: [unique, not_null]}
+      - {name: subscription_id, tests: [{relationships: {to: ref('stg_subscriptions'), field: subscription_id}}]}
+      - {name: gross_amount_usd, tests: [not_null, non_negative]}
+      - {name: currency, tests: [{accepted_values: {values: [USD]}}]}
+  - name: stg_refunds
+    description: "Refunds. Grain: one row per refund."
+    columns:
+      - {name: refund_id, tests: [unique, not_null]}
+      - {name: payment_id, tests: [{relationships: {to: ref('stg_payments'), field: payment_id}}]}
+  - name: stg_experiment_catalog
+    columns:
+      - {name: experiment_id, tests: [unique, not_null]}
+  - name: stg_experiment_assignments
+    description: "Experiment units. Grain: experiment_id x unit_id."
+    columns:
+      - {name: assigned_group, tests: [{accepted_values: {values: [treatment, control]}}]}
+      - {name: converted, tests: [{accepted_values: {values: [0, 1], quote: false}}]}
+  - name: stg_geo_experiment_catalog
+    columns:
+      - {name: experiment_id, tests: [unique, not_null]}
+  - name: stg_geo_daily_outcomes
+    description: "Geo experiment daily outcomes. Grain: geo_id x activity_date."
+    columns:
+      - {name: assigned_group, tests: [{accepted_values: {values: [treatment, control]}}]}
+      - {name: conversions, tests: [non_negative]}
+      - {name: spend_usd, tests: [non_negative]}
+  - name: stg_lifecycle_experiment_catalog
+    columns:
+      - {name: experiment_id, tests: [unique, not_null]}
+  - name: stg_lifecycle_experiment_users
+    description: "Lifecycle experiment users. Grain: experiment_id x unit_id."
+    columns:
+      - {name: unit_id, tests: [unique, not_null]}
+      - {name: assigned_group, tests: [{accepted_values: {values: [treatment, control]}}]}
+      - {name: paid_30d, tests: [{accepted_values: {values: [0, 1], quote: false}}]}
