@@ -1,0 +1,5 @@
+channel,experiment_id,experiment_type,experiment_significant,experiment_incremental_roas,mmm_avg_roi,mmm_roi_p05,mmm_roi_p95,experiment_inside_mmm_interval,calibration_factor,calibrated_mmm_roi,reading
+paid_social,EXP-001,user-level holdout,True,0.21735181996864852,0.1643856571461946,0.0,0.33196303726229054,True,1.322206716461577,0.21735181996864852,Consistent: experiment lies inside the MMM interval.
+display,EXP-002,user-level holdout,False,-0.012986497630236661,0.47107200396807436,0.0,1.137139979480987,False,,,MMM over-states this channel versus the experiment. (experiment itself not significant - treat with caution)
+affiliate,EXP-003,user-level holdout,False,0.43902041532685193,0.0,0.0,1.7570170768234912,True,,,Consistent: experiment lies inside the MMM interval. (experiment itself not significant - treat with caution)
+paid_search,GEO-001,geo holdout (DiD),True,0.8491192461979392,0.4101724316241489,0.1644498744616445,0.6027323025860056,False,2.0701519183912587,0.8491192461979392,MMM under-states this channel versus the experiment.

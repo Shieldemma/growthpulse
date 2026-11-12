@@ -1,0 +1,7 @@
+check,value,status,meaning
+Durbin-Watson,1.3911191024441893,warn,~2 = no first-order autocorrelation; <1.5 positive autocorrelation (omitted dynamics?).
+Ljung-Box p (8 lags),0.0002320925152674729,warn,p<0.05 = residuals still autocorrelated.
+Breusch-Pagan p,0.01828387715266522,warn,p<0.05 = non-constant residual variance.
+Jarque-Bera p (normality),0.7309078769403502,ok,p<0.05 = residuals not normal (matters for intervals).
+Max VIF (multicollinearity),2.23195160153323,ok,Highest: spend_paid_search. >5 means estimates of that column are unstable.
+Weeks per parameter,13.818181818181818,ok,Rule of thumb >= 10 observations per parameter.

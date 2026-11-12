@@ -1,0 +1,28 @@
+table,bigquery_dataset_suffix,grain,pages,date_field,rows,columns
+rpt_dim_date,reporting,calendar day,All (date dimension),date_day,1092,6
+rpt_dim_channel,reporting,channel,All (channel dimension / filter),,8,4
+rpt_dim_campaign,reporting,campaign,Channel & campaign (campaign dimension / filter),,11,6
+rpt_marketing_daily,reporting,date x channel x campaign (first touch),"1 Executive, 2 Channel & campaign, 4 CAC/LTV/ROAS",metric_date,14327,26
+rpt_unit_economics_monthly,reporting,acquisition month x channel (first touch),"1 Executive, 4 CAC/LTV/ROAS",acquisition_month,288,28
+rpt_funnel_daily,reporting,first-visit date x channel x campaign x device,3 Funnel,first_session_date,39908,12
+rpt_retention_cohort,reporting,cohort month x channel x months since start,3 Funnel & retention,cohort_month,5328,11
+rpt_attribution_monthly,reporting,month x attribution model x channel,5 Attribution,month_start,1152,10
+rpt_mmm_weekly,reporting,week,7 MMM (inputs / EDA),week_start,156,11
+rpt_customers,reporting,customer,Drill-through,signup_date,23834,14
+bi_experiment_results,analytics,user-level experiment,6 Experiments,,3,39
+bi_geo_lift_results,analytics,geo experiment,6 Experiments,,1,26
+bi_geo_lift_weekly,analytics,week x group (geo experiment),6 Experiments,week_start,24,8
+bi_lifecycle_results,analytics,lifecycle experiment x metric x horizon,6 Experiments,,6,14
+bi_lifecycle_value,analytics,lifecycle experiment x horizon,6 Experiments,,3,11
+bi_mmm_fit,analytics,week,7 MMM,week_start,152,5
+bi_mmm_contributions,analytics,week x component,7 MMM,week_start,760,4
+bi_mmm_channel_summary,analytics,channel,7 MMM,,4,17
+bi_mmm_response_curves,analytics,channel x weekly spend point,7 MMM,,160,5
+bi_mmm_scenarios,analytics,budget scenario,7 MMM,,5,13
+bi_mmm_scenario_spend,analytics,budget scenario x channel,7 MMM,,20,6
+bi_mmm_model_comparison,analytics,model,7 MMM,,3,8
+bi_mmm_diagnostics,analytics,diagnostic check,7 MMM,,6,4
+bi_mmm_calibration,analytics,channel x experiment,7 MMM / 6 Experiments,,4,12
+bi_recommendations,analytics,paid channel,1 Executive,,4,5
+bi_channel_economics,analytics,channel,4 CAC/LTV/ROAS,,8,21
+bi_data_freshness,analytics,pipeline run (1 row),8 Data quality & freshness,pipeline_finished_utc,1,9

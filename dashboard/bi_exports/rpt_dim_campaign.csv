@@ -1,0 +1,12 @@
+campaign_id,campaign_name,channel_name,objective,start_date,end_date
+ps_brand,Search - Brand terms,paid_search,capture brand demand,2023-01-02,
+ps_generic,Search - Generic terms,paid_search,acquire new demand,2023-01-02,
+ps_competitor,Search - Competitor terms,paid_search,conquest,2023-01-02,2024-12-01
+so_prospecting,Social - Prospecting,paid_social,awareness + leads,2023-01-02,
+so_lookalike,Social - Lookalike audiences,paid_social,efficient leads,2023-01-02,
+so_video,Social - Video,paid_social,awareness,2023-07-31,
+dp_prospecting,Display - Prospecting,display,awareness,2023-01-02,
+dp_programmatic,Display - Programmatic,display,reach,2023-01-02,
+af_coupon,Affiliate - Coupon sites,affiliate,discount seekers,2023-01-02,
+af_content,Affiliate - Content partners,affiliate,review-driven leads,2023-01-02,
+none,No campaign (organic / owned),,,,

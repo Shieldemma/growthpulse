@@ -1,0 +1,9 @@
+channel_name,channel_label,channel_group,is_paid
+paid_search,paid search,paid,1
+paid_social,paid social,paid,1
+display,display,paid,1
+affiliate,affiliate,paid,1
+organic_search,organic search,organic,0
+email,email,owned,0
+referral,referral,organic,0
+direct,direct,organic,0
