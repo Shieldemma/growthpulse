@@ -1,0 +1,31 @@
+# SCHEDULED / MANUAL BigQuery refresh. UNVERIFIED (never executed by the author - no Google Cloud project was available).
+# Authentication uses Google Workload Identity Federation (no long-lived key in GitHub). Configure once, see docs/bi_connection_and_refresh.md.
+# Repository -> Settings -> Secrets and variables -> Actions: set variables GCP_PROJECT_ID, GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT.
+name: refresh-bigquery
+on:
+  workflow_dispatch: {}            # manual trigger: Actions tab -> Run workflow
+  schedule:
+    - cron: "0 5 * * 1"            # weekly, Monday 05:00 UTC (the data are static/synthetic; weekly is plenty)
+permissions:
+  contents: read
+  id-token: write                  # required for Workload Identity Federation
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GP_BQ_DATASET: growthpulse
+      GP_BQ_RAW_DATASET: growthpulse_raw
+      GP_BQ_LOCATION: US
+      GP_BQ_MAX_BYTES_BILLED: "10000000000"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      - run: pip install -r requirements.txt && pip install -e .
+      - run: bash scripts/refresh_bigquery.sh
