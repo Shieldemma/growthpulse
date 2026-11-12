@@ -1,0 +1,62 @@
+// GrowthPulse Power BI measures. UNVERIFIED in Power BI (no Desktop available to the author).
+// Tables: 'rpt_marketing_daily' (M), 'rpt_unit_economics_monthly' (U), 'rpt_funnel_daily' (F), 'rpt_retention_cohort' (R),
+// 'rpt_attribution_monthly' (A), 'bi_*' result tables, 'dim_date' (= rpt_dim_date), 'dim_channel', 'dim_campaign'.
+// All ratios are ratio-of-sums via DIVIDE (BLANK on a zero denominator, like the SQL/Python metrics).
+
+// ---------- basics (rpt_marketing_daily)
+Spend = SUM ( rpt_marketing_daily[spend_usd] )
+Clicks = SUM ( rpt_marketing_daily[clicks] )
+Signups = SUM ( rpt_marketing_daily[signups] )
+Trials = SUM ( rpt_marketing_daily[trials] )
+New Customers = SUM ( rpt_marketing_daily[new_customers] )
+Net Revenue To Date = SUM ( rpt_marketing_daily[net_revenue_to_date] )
+CPC = IF ( [Spend] > 0, DIVIDE ( [Spend], [Clicks] ) )
+Cost per Signup = IF ( [Spend] > 0, DIVIDE ( [Spend], [Signups] ) )
+Paid-Media CAC = IF ( [Spend] > 0, DIVIDE ( [Spend], [New Customers] ) )
+Trial to Paid % = DIVIDE ( [New Customers], [Trials] )
+
+// ---------- censoring-safe ROAS / LTV (use the *_eligible_* columns prepared in dbt)
+Revenue 12m (observed) = SUM ( rpt_marketing_daily[revenue_m12_eligible] )
+Spend (observed 12m cohorts) = SUM ( rpt_marketing_daily[spend_eligible_m12] )
+Customers (observed 12m cohorts) = SUM ( rpt_marketing_daily[customers_eligible_m12] )
+ROAS 12m = IF ( [Spend (observed 12m cohorts)] > 0, DIVIDE ( [Revenue 12m (observed)], [Spend (observed 12m cohorts)] ) )
+ROAS 3m = IF ( SUM ( rpt_marketing_daily[spend_eligible_m3] ) > 0, DIVIDE ( SUM ( rpt_marketing_daily[revenue_m3_eligible] ), SUM ( rpt_marketing_daily[spend_eligible_m3] ) ) )
+Revenue per Customer 12m = DIVIDE ( [Revenue 12m (observed)], [Customers (observed 12m cohorts)] )
+Gross Margin = 0.8   // ASSUMPTION - expose as a What-If parameter
+Gross-Profit LTV 12m = [Revenue per Customer 12m] * [Gross Margin]
+CAC (observed 12m cohorts) = IF ( [Spend (observed 12m cohorts)] > 0, DIVIDE ( [Spend (observed 12m cohorts)], [Customers (observed 12m cohorts)] ) )
+LTV to CAC 12m = DIVIDE ( [Gross-Profit LTV 12m], [CAC (observed 12m cohorts)] )
+
+// ---------- fully loaded CAC (rpt_unit_economics_monthly)
+CAC Fully Loaded =
+    VAR s = SUM ( rpt_unit_economics_monthly[spend_usd] )
+    RETURN IF ( s > 0, DIVIDE ( s + SUM ( rpt_unit_economics_monthly[overhead_allocated_usd] ), SUM ( rpt_unit_economics_monthly[new_customers] ) ) )
+CAC Fully Loaded (observed 12m) =
+    VAR s = SUM ( rpt_unit_economics_monthly[spend_eligible_m12] )
+    RETURN IF ( s > 0, DIVIDE ( s + SUM ( rpt_unit_economics_monthly[overhead_eligible_m12] ), SUM ( rpt_unit_economics_monthly[customers_eligible_m12] ) ) )
+LTV to CAC 12m (loaded) = DIVIDE ( [Gross-Profit LTV 12m], [CAC Fully Loaded (observed 12m)] )
+
+// ---------- funnel (rpt_funnel_daily)
+Visitors = SUM ( rpt_funnel_daily[visitors] )
+Visit to Pricing % = DIVIDE ( SUM ( rpt_funnel_daily[pricing_viewers] ), [Visitors] )
+Pricing to Signup Start % = DIVIDE ( SUM ( rpt_funnel_daily[signup_starters] ), SUM ( rpt_funnel_daily[pricing_viewers] ) )
+Signup Start to Signup % = DIVIDE ( SUM ( rpt_funnel_daily[signups] ), SUM ( rpt_funnel_daily[signup_starters] ) )
+Signup to Trial % = DIVIDE ( SUM ( rpt_funnel_daily[trials] ), SUM ( rpt_funnel_daily[signups] ) )
+Trial to Paid (funnel) % = DIVIDE ( SUM ( rpt_funnel_daily[paying_customers] ), SUM ( rpt_funnel_daily[trials] ) )
+Visit to Paid % = DIVIDE ( SUM ( rpt_funnel_daily[paying_customers] ), [Visitors] )
+
+// ---------- retention (rpt_retention_cohort)
+Retention % = DIVIDE ( SUM ( rpt_retention_cohort[customers_retained] ), SUM ( rpt_retention_cohort[customers_observed] ) )
+Churn % = 1 - [Retention %]
+Net Revenue per Observed Customer = DIVIDE ( SUM ( rpt_retention_cohort[net_revenue_usd] ), SUM ( rpt_retention_cohort[customers_observed] ) )
+
+// ---------- attribution (rpt_attribution_monthly): put attribution_model on a slicer/legend, never sum across models
+Credited Customers = SUM ( rpt_attribution_monthly[new_customers] )
+Credited CAC = IF ( SUM ( rpt_attribution_monthly[spend_usd] ) > 0, DIVIDE ( SUM ( rpt_attribution_monthly[spend_usd] ), [Credited Customers] ) )
+Credit Share % = DIVIDE ( [Credited Customers], CALCULATE ( [Credited Customers], ALLEXCEPT ( rpt_attribution_monthly, rpt_attribution_monthly[attribution_model] ) ) )
+
+// ---------- experiments / MMM (result tables are one row per experiment/channel: use MAX/SELECTEDVALUE)
+Incremental ROAS = MAX ( bi_experiment_results[incremental_roas] )
+Attributed ROAS = MAX ( bi_experiment_results[attributed_roas] )
+Attribution Overstatement = [Attributed ROAS] - [Incremental ROAS]
+MMM Share of Revenue = MAX ( bi_mmm_channel_summary[share_of_revenue] )
