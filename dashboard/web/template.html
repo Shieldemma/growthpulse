@@ -1,0 +1,727 @@
+<title>GrowthPulse Growth Analytics</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Growth analytics case study: CAC, LTV, ROAS, attribution vs incrementality, geo-lift, lifecycle tests and a marketing mix model, built with dbt, DuckDB/BigQuery and Python.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: an analyst's case file. Sticky section nav, answers first, then one band per method, evidence under each claim. */
+:root{
+  --bg:#f3f6f7; --surface:#ffffff; --surface-2:#eaf0f2; --ink:#0f1c25; --ink-2:#3c4c58; --muted:#66757f; --line:#d9e1e5;
+  --accent:#0d6b70; --accent-soft:#d8eeee;
+  --good:#18794e; --good-bg:#dcf2e6; --warn:#9a6200; --warn-bg:#fbefd5; --bad:#b4371f; --bad-bg:#fbe3dc;
+  --s-search:#2a78d6; --s-social:#eb6834; --s-display:#1baf7a; --s-affiliate:#eda100; --s-organic:#8a94a3;
+  --font-display:"Bricolage Grotesque", "Inter", system-ui, sans-serif;
+  --font-body:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --radius:10px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0c1318; --surface:#131c23; --surface-2:#1a252d; --ink:#e7edf1; --ink-2:#b4c0c8; --muted:#8a99a4; --line:#24313a;
+  --accent:#5cc0c2; --accent-soft:#16363a;
+  --good:#5fd39b; --good-bg:#123426; --warn:#f0b54a; --warn-bg:#3a2c10; --bad:#ff8a70; --bad-bg:#3d1c15;
+  --s-search:#3987e5; --s-social:#d95926; --s-display:#199e70; --s-affiliate:#c98500; --s-organic:#7d8796;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0c1318; --surface:#131c23; --surface-2:#1a252d; --ink:#e7edf1; --ink-2:#b4c0c8; --muted:#8a99a4; --line:#24313a;
+  --accent:#5cc0c2; --accent-soft:#16363a;
+  --good:#5fd39b; --good-bg:#123426; --warn:#f0b54a; --warn-bg:#3a2c10; --bad:#ff8a70; --bad-bg:#3d1c15;
+  --s-search:#3987e5; --s-social:#d95926; --s-display:#199e70; --s-affiliate:#c98500; --s-organic:#7d8796;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.55;margin:0;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+a{color:var(--accent)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+h2{font-size:clamp(1.45rem,2.6vw,1.9rem);line-height:1.15}
+h3{font-size:1.02rem;font-weight:700;line-height:1.3}
+p{margin:0}
+.eyebrow{font-size:.72rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+
+/* top bar */
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.topbar .wrap{display:flex;align-items:center;gap:20px;min-height:56px}
+.brand{font-family:var(--font-display);font-weight:700;font-size:1.1rem;color:var(--ink);text-decoration:none;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.brand svg{flex:none}
+.nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}
+.nav::-webkit-scrollbar{display:none}
+.nav a{padding:6px 10px;border-radius:6px;color:var(--ink-2);text-decoration:none;font-size:.86rem;white-space:nowrap}
+.nav a:hover,.nav a.on{background:var(--surface-2);color:var(--ink)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:4px 9px;border-radius:999px;background:var(--warn-bg);color:var(--warn);white-space:nowrap}
+
+/* hero */
+.hero{padding-block:44px 28px}
+.hero h1{font-size:clamp(2rem,5vw,3.3rem);line-height:1.05;max-width:17ch;margin-top:10px}
+.hero .lede{font-size:1.08rem;color:var(--ink-2);max-width:62ch;margin-top:16px}
+.verdict{margin-top:22px;padding:16px 18px;border-radius:var(--radius);background:var(--accent-soft);color:var(--ink);max-width:78ch;font-size:1rem}
+.verdict b{color:var(--accent)}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:28px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;min-width:0}
+.kpi .v{font-family:var(--font-mono);font-size:1.6rem;font-weight:500;margin-top:4px;letter-spacing:-.02em}
+.kpi .s{font-size:.8rem;color:var(--muted);margin-top:2px}
+.kpi.alert .v{color:var(--bad)}
+
+/* sections */
+section.band{padding-block:40px;border-top:1px solid var(--line)}
+.sec-head{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin-bottom:22px;max-width:76ch}
+.sec-head p{color:var(--ink-2)}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;min-width:0;display:flex;flex-direction:column;gap:10px}
+.card .sub{font-size:.85rem;color:var(--muted)}
+.card .take{font-size:.9rem;color:var(--ink-2);border-top:1px dashed var(--line);padding-top:10px;margin-top:auto}
+.card .take b{color:var(--ink)}
+.chart{position:relative;height:280px;width:100%}
+.chart.tall{height:330px}
+.chart.short{height:220px}
+
+/* answers */
+.qa{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.q{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:8px;text-decoration:none;color:inherit;min-width:0;transition:border-color .15s}
+.q:hover{border-color:var(--accent)}
+.q .qn{font-family:var(--font-mono);font-size:.75rem;color:var(--accent)}
+.q h3{font-size:1rem}
+.q p{color:var(--ink-2);font-size:.92rem}
+.q .stat{font-family:var(--font-mono);font-size:1.25rem;color:var(--ink);margin-top:auto;padding-top:6px}
+.q .stat small{font-family:var(--font-body);font-size:.78rem;color:var(--muted);display:block}
+
+/* legend */
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.8rem;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.legend i.line{height:3px;border-radius:2px;width:14px}
+
+/* tables */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.86rem}
+th,td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{white-space:normal;line-height:1.25;font-weight:600;color:var(--muted);font-size:.74rem;text-transform:uppercase;letter-spacing:.05em;background:var(--surface-2)}
+td:first-child,th:first-child{text-align:left}
+tr:last-child td{border-bottom:none}
+td .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:8px;vertical-align:0}
+tr.organic td{color:var(--ink-2)}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:.74rem;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap;font-family:var(--font-body)}
+.pill.good{background:var(--good-bg);color:var(--good)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.pill.neutral{background:var(--surface-2);color:var(--ink-2)}
+.pill svg{width:11px;height:11px}
+
+/* forest plots (SVG) */
+.forest{width:100%;display:block;overflow:visible}
+.forest text{font-family:var(--font-body);font-size:12px;fill:var(--ink-2)}
+.forest .lab{fill:var(--ink);font-weight:500}
+.forest .val{font-family:var(--font-mono);font-size:11.5px;fill:var(--muted)}
+.forest .axis{stroke:var(--line)}
+.forest .zero{stroke:var(--muted);stroke-dasharray:3 3}
+.forest .hit{fill:transparent;cursor:default}
+
+/* recommendations */
+.recs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.rec{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.rec .top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.rec .top h3{display:flex;align-items:center;gap:8px}
+.rec dl{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:0;font-size:.88rem}
+.rec dt{font-size:.7rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.rec dd{margin:0;color:var(--ink-2)}
+.plan{counter-reset:step;display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.plan li{display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px;align-items:start;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+.plan li::before{counter-increment:step;content:counter(step);font-family:var(--font-mono);font-size:.85rem;width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center}
+.plan b{display:block;margin-bottom:2px}
+.plan span{color:var(--ink-2);font-size:.9rem}
+
+/* pipeline + skills */
+.pipe{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.pipe div{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px;font-size:.84rem;color:var(--ink-2);min-width:0}
+.pipe b{display:block;color:var(--ink);font-size:.9rem;margin-bottom:4px}
+.pipe .num{color:var(--accent)}
+.skills td,.skills th{white-space:normal;text-align:left;vertical-align:top}
+.skills td:first-child{font-weight:500;width:34%}
+.notes{font-size:.86rem;color:var(--ink-2);display:grid;gap:6px;padding-left:18px;margin:0}
+
+/* tooltip */
+#tip{position:fixed;pointer-events:none;z-index:50;background:var(--ink);color:var(--bg);font-size:.8rem;padding:7px 10px;border-radius:6px;max-width:260px;opacity:0;transition:opacity .08s;line-height:1.4}
+#tip b{font-weight:600}
+
+footer{border-top:1px solid var(--line);padding-block:28px 40px;color:var(--muted);font-size:.85rem}
+footer .wrap{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-between}
+
+@media (max-width:980px){
+  .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .qa,.g3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pipe{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width:680px){
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi:last-child{grid-column:1/-1}
+  .qa,.g2,.g3,.recs{grid-template-columns:minmax(0,1fr)}
+  .pipe{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .topbar .chip{display:none}
+  .chart{height:250px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+</style>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="GrowthPulse, back to top">
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="6" fill="var(--accent)"/><path d="M5 14h3l2-5 3 8 2-5h4" fill="none" stroke="var(--surface)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      GrowthPulse
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#answers">Answers</a>
+      <a href="#economics">Unit economics</a>
+      <a href="#funnel">Funnel &amp; retention</a>
+      <a href="#incrementality">Incrementality</a>
+      <a href="#mmm">MMM &amp; budget</a>
+      <a href="#actions">Actions</a>
+      <a href="#build">How it's built</a>
+    </nav>
+    <span class="chip" title="All company, marketing and experiment data are simulated">Synthetic data</span>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap hero">
+    <div class="eyebrow">Growth analytics case study · subscription software for vacation-rental hosts (fictional)</div>
+    <h1>Where should the next marketing dollar go?</h1>
+    <p class="lede" id="lede">Three years of acquisition data across eight channels, read four ways: unit economics, multi-touch attribution, randomised experiments and a marketing mix model. Each method answers a different question, and this page shows where they agree and where they don't.</p>
+    <p class="verdict" id="verdict"></p>
+    <div class="kpis" id="kpis"></div>
+  </div>
+
+  <section class="band" id="answers">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">The brief</div>
+        <h2>Six questions a growth team asks, answered</h2>
+        <p>Each answer links to the evidence below. Figures are first-touch unless stated; ratios are ratio-of-sums; 12-month figures use only cohorts observed for a full 12 months.</p>
+      </div>
+      <div class="qa" id="qa"></div>
+    </div>
+  </section>
+
+  <section class="band" id="economics">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">01 · Unit economics</div>
+        <h2>Paid search earns its keep. Display and paid social don't.</h2>
+        <p>Projected 36-month gross-profit LTV against fully loaded CAC (media plus team, tools, agency and creative). Below 1.0 a channel loses money on every customer; 3.0 is the usual bar for scaling.</p>
+      </div>
+      <div class="grid g2">
+        <div class="card">
+          <h3>LTV : CAC by paid channel</h3>
+          <div class="sub">Projected 36-month gross profit ÷ fully loaded CAC</div>
+          <div class="chart short"><canvas id="c-ltvcac" role="img" aria-label="LTV to CAC ratio by paid channel"></canvas></div>
+          <p class="take" id="t-ltvcac"></p>
+        </div>
+        <div class="card">
+          <h3>Cost to acquire one paying customer</h3>
+          <div class="sub">Media-only CAC and fully loaded CAC, USD</div>
+          <div class="legend"><span><i style="background:var(--s-organic)"></i>Media only</span><span><i style="background:var(--accent)"></i>Fully loaded</span></div>
+          <div class="chart short"><canvas id="c-cac" role="img" aria-label="CAC by paid channel"></canvas></div>
+          <p class="take" id="t-cac"></p>
+        </div>
+        <div class="card">
+          <h3>Monthly paid media spend</h3>
+          <div class="sub">USD per month, stacked by channel</div>
+          <div class="legend" id="lg-spend"></div>
+          <div class="chart"><canvas id="c-spend" role="img" aria-label="Monthly paid spend by channel"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>New paying customers per month</h3>
+          <div class="sub">Paid channels vs organic and owned channels</div>
+          <div class="legend"><span><i class="line" style="background:var(--s-search)"></i>Paid channels</span><span><i class="line" style="background:var(--s-organic)"></i>Organic &amp; owned</span></div>
+          <div class="chart"><canvas id="c-cust" role="img" aria-label="New paying customers per month"></canvas></div>
+        </div>
+      </div>
+      <div class="tbl-wrap" style="margin-top:16px">
+        <table id="tbl-econ" aria-label="Channel unit economics"></table>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="funnel">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">02 · Funnel &amp; retention</div>
+        <h2>The biggest leak is the signup form. The cheapest customers churn fastest.</h2>
+        <p>Step conversion from first visit to first payment, and the share of each channel's customers still paying N months after they started.</p>
+      </div>
+      <div class="grid g2">
+        <div class="card">
+          <h3>Step conversion by acquisition source</h3>
+          <div class="sub">% of the previous step that reached the next one</div>
+          <div class="legend" id="lg-funnel"></div>
+          <div class="chart tall"><canvas id="c-funnel" role="img" aria-label="Funnel step conversion by channel"></canvas></div>
+          <p class="take" id="t-funnel"></p>
+        </div>
+        <div class="card">
+          <h3>Customer retention curve</h3>
+          <div class="sub">% of customers still paying, by months since first payment</div>
+          <div class="legend" id="lg-ret"></div>
+          <div class="chart tall"><canvas id="c-ret" role="img" aria-label="Retention curves by channel"></canvas></div>
+          <p class="take" id="t-ret"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="incrementality">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">03 · Attribution vs incrementality</div>
+        <h2>Attribution says every channel works. The holdout tests disagree.</h2>
+        <p>Attribution tells you who touched a customer; only a randomised holdout tells you whether the ad caused the purchase. Four experiments were run: three user-level holdouts and one geo test with difference-in-differences.</p>
+      </div>
+      <div class="grid g2">
+        <div class="card">
+          <h3>Attributed ROAS vs incremental ROAS</h3>
+          <div class="sub">Revenue per ad dollar during each test: credited by attribution vs caused, per the holdout</div>
+          <div class="legend"><span><i style="background:var(--s-organic)"></i>Attributed</span><span><i style="background:var(--accent)"></i>Incremental (experiment)</span></div>
+          <div class="chart short"><canvas id="c-roas" role="img" aria-label="Attributed versus incremental ROAS"></canvas></div>
+          <p class="take" id="t-roas"></p>
+        </div>
+        <div class="card">
+          <h3>Measured lift, with 95% confidence intervals</h3>
+          <div class="sub">Relative lift in paid conversions, treatment vs holdout</div>
+          <svg class="forest" id="f-lift" role="img" aria-label="Experiment lift with confidence intervals"></svg>
+          <p class="take" id="t-lift"></p>
+        </div>
+        <div class="card">
+          <h3>Geo test: paid search non-brand switched on in 20 of 40 regions</h3>
+          <div class="sub">Daily paid conversions per region, indexed to the 8-week pre-period (1.00 = normal)</div>
+          <div class="legend"><span><i class="line" style="background:var(--s-search)"></i>Treatment regions</span><span><i class="line" style="background:var(--s-organic)"></i>Control regions</span><span><i style="background:var(--surface-2);border:1px solid var(--line)"></i>Test period</span></div>
+          <div class="chart"><canvas id="c-geo" role="img" aria-label="Geo test weekly conversions indexed"></canvas></div>
+          <p class="take" id="t-geo"></p>
+        </div>
+        <div class="card">
+          <h3>Lifecycle test: 5-email trial onboarding series</h3>
+          <div class="sub">Relative lift vs holdout at 30, 90 and 180 days, with 95% CIs</div>
+          <svg class="forest" id="f-life" role="img" aria-label="Lifecycle email lift by horizon"></svg>
+          <p class="take" id="t-life"></p>
+        </div>
+        <div class="card" style="grid-column:1/-1">
+          <h3>How much credit each attribution model gives</h3>
+          <div class="sub">Paying customers credited to each paid channel, 2023–2025. Same data, four rules.</div>
+          <div class="legend" id="lg-att"></div>
+          <div class="chart short"><canvas id="c-att" role="img" aria-label="Customers credited by attribution model"></canvas></div>
+          <p class="take" id="t-att"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="mmm">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">04 · Marketing mix model &amp; budget</div>
+        <h2>The MMM points the same way on search, and gets display wrong.</h2>
+        <p>A weekly regression of new MRR on adstocked, saturated spend per channel, with trend, seasonality and promotions as controls. It was trained on the first 80% of weeks and scored on the last 20%, then checked against the experiments.</p>
+      </div>
+      <div class="grid g2">
+        <div class="card">
+          <h3>Model fit on weekly new MRR</h3>
+          <div class="sub">Actual vs fitted, USD per week. Shaded weeks were held out for testing.</div>
+          <div class="legend"><span><i class="line" style="background:var(--s-organic)"></i>Actual</span><span><i class="line" style="background:var(--accent)"></i>Fitted</span></div>
+          <div class="chart"><canvas id="c-fit" role="img" aria-label="MMM fit actual versus fitted"></canvas></div>
+          <p class="take" id="t-fit"></p>
+        </div>
+        <div class="card">
+          <h3>MMM return per $1 vs what the experiments measured</h3>
+          <div class="sub">Bar: MMM 90% interval · dot: MMM mean · diamond: experiment's incremental ROAS</div>
+          <svg class="forest" id="f-cal" role="img" aria-label="MMM ROI intervals versus experiment results"></svg>
+          <p class="take" id="t-cal"></p>
+        </div>
+        <div class="card">
+          <h3>Diminishing returns by channel</h3>
+          <div class="sub">Predicted weekly new MRR at each weekly spend level; dot = current spend</div>
+          <div class="legend" id="lg-resp"></div>
+          <div class="chart"><canvas id="c-resp" role="img" aria-label="Response curves by channel"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>Budget scenarios</h3>
+          <div class="sub">Change in weekly new MRR vs current mix, 90% interval from 300 bootstrap fits</div>
+          <svg class="forest" id="f-scen" role="img" aria-label="Budget scenario outcomes"></svg>
+          <p class="take" id="t-scen"></p>
+        </div>
+      </div>
+      <div class="grid g2" style="margin-top:16px">
+        <div class="tbl-wrap"><table id="tbl-models" aria-label="MMM model comparison"></table></div>
+        <div class="tbl-wrap"><table id="tbl-diag" aria-label="MMM diagnostics"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="actions">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">05 · Recommendations</div>
+        <h2>What I would do next quarter</h2>
+        <p>Each call combines lifetime economics, the experiments and the MMM. When they disagree, causal evidence and economics outrank the model.</p>
+      </div>
+      <div class="recs" id="recs"></div>
+      <h3 style="margin:28px 0 12px">90-day test plan</h3>
+      <ol class="plan" id="plan"></ol>
+    </div>
+  </section>
+
+  <section class="band" id="build">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">06 · How it's built</div>
+        <h2>A production-shaped pipeline, tested end to end</h2>
+        <p>The same dbt project runs on DuckDB locally and on BigQuery. Every number on this page is read from the BI export tables the pipeline writes.</p>
+      </div>
+      <div class="pipe" id="pipe"></div>
+      <h3 style="margin:28px 0 12px">Skills shown, mapped to a Senior Growth / Marketing Data Analyst brief</h3>
+      <div class="tbl-wrap"><table class="skills" id="tbl-skills" aria-label="Skills map"></table></div>
+      <h3 style="margin:28px 0 10px">Read with care</h3>
+      <ul class="notes" id="limits"></ul>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Built by Otuekong Emmanuel · <a href="https://github.com/shieldemma/growthpulse">github.com/shieldemma/growthpulse</a></span>
+    <span id="foot-meta"></span>
+  </div>
+</footer>
+<div id="tip" role="tooltip"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<script>
+const D = /*__DATA__*/null;
+const $ = (s) => document.querySelector(s);
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const L = D.labels;
+const SER = {paid_search:'--s-search', paid_social:'--s-social', display:'--s-display', affiliate:'--s-affiliate', organic_owned:'--s-organic'};
+const col = (id) => css(SER[id] || '--s-organic');
+const lab = (id) => id === 'organic_owned' ? 'Organic & owned' : (L[id] || id);
+const usd = (v, d=0) => v == null ? '–' : (v < 0 ? '−$' : '$') + Math.abs(Number(v)).toLocaleString('en-US', {maximumFractionDigits:d, minimumFractionDigits:d});
+const usdk = (v) => v == null ? '–' : (Math.abs(v) >= 1e6 ? '$' + (v/1e6).toFixed(2) + 'M' : Math.abs(v) >= 1e3 ? '$' + (v/1e3).toFixed(0) + 'k' : '$' + Math.round(v));
+const int = (v) => v == null ? '–' : Math.round(v).toLocaleString('en-US');
+const pct = (v, d=0) => v == null ? '–' : (v*100).toFixed(d) + '%';
+const spct = (v, d=1) => v == null ? '–' : (v >= 0 ? '+' : '−') + Math.abs(v*100).toFixed(d) + '%';
+const x2 = (v, d=1) => v == null ? '–' : Number(v).toFixed(d) + '×';
+const cap = (t) => t ? t[0].toUpperCase() + t.slice(1) : t;
+const ch = (id) => D.channels.find(c => c.id === id);
+const exp = (id) => D.experiments.find(e => e.id === id);
+
+const ICON = {
+  good:'<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6.5l2.2 2.2L9.5 3.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  warn:'<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2.2v4.6M6 9.2v.3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  bad:'<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3l6 6M9 3l-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+};
+const pill = (kind, text) => `<span class="pill ${kind}">${ICON[kind] || ''}${text}</span>`;
+const ACTION = {
+  paid_search:['good','Scale, test first'], paid_social:['warn','Reduce & fix'],
+  display:['bad','Cut or re-test'], affiliate:['warn','Reduce & fix']
+};
+
+/* ---------- static content computed from data ---------- */
+function renderText(){
+  const k = D.kpis, ps = ch('paid_search'), dp = ch('display'), so = ch('paid_social'), af = ch('affiliate');
+  const e1 = exp('EXP-001'), e2 = exp('EXP-002'), e3 = exp('EXP-003'), g1 = exp('GEO-001');
+  const opt = D.mmm.scenarios.find(s => s.name.startsWith('optimised, same'));
+  const lifeConv = D.lifecycle.find(r => r.horizon === 30 && r.kind === 'rate');
+  const life180 = D.lifecycle.find(r => r.horizon === 180 && r.kind === 'per_user_usd');
+  const life30r = D.lifecycle.find(r => r.horizon === 30 && r.kind === 'per_user_usd');
+  const lv180 = D.lifecycle_value.find(r => r.horizon === 180);
+  const fs = D.funnel.stages, fa = D.funnel.all;
+  const stepRates = fs.slice(1).map((s, i) => fa[i+1] / fa[i]);
+  const worst = stepRates.indexOf(Math.min(...stepRates));
+  const stageName = {visitors:'visit', pricing_viewers:'pricing view', signup_starters:'signup start', signups:'signup', trials:'trial', paying_customers:'first payment'};
+
+  $('#verdict').innerHTML = `<b>Short answer:</b> move budget into paid search, which pays back in ${ps.payback_months} months at ${x2(ps.ltv_cac)} LTV:CAC and showed a real lift in a geo test. Stop scaling display: its attributed ROAS looks fine, but its holdout showed no lift and each customer loses money. Paid social does cause sales, but too few to cover its cost.`;
+
+  $('#kpis').innerHTML = [
+    ['Paid media spend', usdk(k.paid_spend), `${D.meta.data_start.slice(0,7)} to ${D.meta.data_end.slice(0,7)}`],
+    ['Customers from paid', int(k.paid_customers), `of ${int(k.total_customers)} paying customers`],
+    ['Blended paid CAC', usd(k.paid_cac), 'media spend ÷ new paying customers'],
+    ['Paid ROAS, first 12 months', x2(k.paid_roas_m12, 2), 'net revenue ÷ spend, mature cohorts'],
+    ['Spend in loss-making channels', pct(k.loss_making_spend_share), 'display + paid social, LTV:CAC ≈ 1 or less', 'alert']
+  ].map(([l, v, s, c]) => `<div class="kpi ${c||''}"><div class="eyebrow">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+
+  const qa = [
+    ['Which channels acquire customers efficiently?', `Paid search: ${pct(k.paid_share_of_customers_search)} of paid customers from ${pct(k.paid_share_of_spend_search)} of paid spend. Display costs ${x2(dp.cac/ps.cac)} as much per customer.`, `${usd(ps.cac)} vs ${usd(dp.cac)}`, 'CAC, paid search vs display', '#economics'],
+    ['Is the revenue incremental, or just credited?', `Display claims ${x2(e2.attributed_roas,2)} ROAS by attribution, but its holdout found ${spct(e2.rel_lift)} lift (95% CI ${spct(e2.lo,0)} to ${spct(e2.hi,0)}). Paid social's lift is real (${spct(e1.rel_lift,0)}) but small in dollars.`, `${x2(e2.attributed_roas,2)} → ${x2(e2.incremental_roas,2)}`, 'display ROAS, attributed → incremental', '#incrementality'],
+    ['Where does the funnel leak?', `Only ${pct(stepRates[worst],1)} of people who start the signup form finish it, the weakest step. Trial-to-paid is ${pct(stepRates[4])}.`, pct(stepRates[worst],1), `${stageName[fs[worst]]} → ${stageName[fs[worst+1]]}`, '#funnel'],
+    ['Which channels bring customers who stay?', `Organic, referral and email customers churn about 2.5–3.2% a month. Affiliate and display customers churn ${pct(af.monthly_churn,1)} and ${pct(dp.monthly_churn,1)}: discount seekers leave.`, `${pct(af.monthly_churn,1)} vs ${pct(ch('referral').monthly_churn,1)}`, 'monthly churn, affiliate vs referral', '#funnel'],
+    ['How should budget be reallocated?', `The MMM's best mix at the same budget adds ${usd(opt.delta)} new MRR a week (90% interval ${usd(opt.lo)} to +${usd(opt.hi)}). I'd take the search half of that move and test it with a geo holdout.`, `+${usd(opt.delta)}/wk`, `new MRR, ${pct(opt.prob)} of bootstrap fits beat today`, '#mmm'],
+    ['Does lifecycle marketing pay off long-term?', `The onboarding emails lifted 30-day paid conversion ${spct(lifeConv.rel)}. The revenue lift fades from ${spct(life30r.rel)} at 30 days to ${spct(life180.rel)} at 180, still worth it at near-zero cost.`, usdk(lv180.total), 'net value at 180 days', '#incrementality'],
+  ];
+  $('#qa').innerHTML = qa.map(([q, a, s, sl, href], i) => `<a class="q" href="${href}"><span class="qn">Q${i+1}</span><h3>${q}</h3><p>${a}</p><div class="stat">${s}<small>${sl}</small></div></a>`).join('');
+
+  $('#t-ltvcac').innerHTML = `<b>Paid search returns ${x2(ps.ltv_cac)}</b> its fully loaded cost and pays back in ${ps.payback_months} months. Display returns ${x2(dp.ltv_cac)} and never pays back in the observed data.`;
+  $('#t-cac').innerHTML = `Overhead adds about 40% to every channel. Display's <b>${usd(dp.cac_loaded)}</b> loaded CAC is more than its customers' projected 36-month gross profit (${usd(dp.ltv_gp_36m)}).`;
+  const by = D.funnel.by;
+  $('#t-funnel').innerHTML = `Display visitors reach pricing at a similar rate but finish signup far less often: <b>${pct(by.display[5]/by.display[0],2)}</b> of display visitors pay, vs <b>${pct(by.paid_search[5]/by.paid_search[0],2)}</b> from paid search.`;
+  const r12 = (g) => D.retention[g][12];
+  $('#t-ret').innerHTML = `At 12 months, <b>${pct(r12('organic_owned'))}</b> of organic and owned customers still pay, ${pct(r12('paid_search'))} from paid search, and only <b>${pct(r12('affiliate'))}</b> from affiliate coupon sites.`;
+  $('#t-roas').innerHTML = `Attribution over-credits every tested channel. On first-payment revenue during the tests, <b>display returned nothing incremental</b>, and paid social returned ${usd(e1.incremental_roas,2)} per $1 against the ${usd(e1.attributed_roas,2)} attribution claims.`;
+  $('#t-lift').innerHTML = `Two tests are significant: paid social and the paid search geo test. The affiliate pilot was too small: detecting its observed lift needs about <b>${int(e3.required_n)} users per arm</b>, vs ${int(e3.n/2)} tested.`;
+  $('#t-geo').innerHTML = `Treatment regions rose about <b>${spct(g1.rel_lift,0)}</b> once search switched on (95% CI ${spct(g1.lo,0)} to ${spct(g1.hi,0)}). Pre-period trends were parallel (placebo p = ${g1.placebo_p.toFixed(2)}), so the gap is credible.`;
+  $('#t-life').innerHTML = `Every horizon is significant, but the lift shrinks: incremental converters retain worse than average. Net value is still <b>${usd(lv180.net_per_user,2)} per trial user</b> at 180 days against a $0.35 send cost.`;
+  const a = D.attribution, pf = a.first_touch.paid_search, pl = a.last_touch.paid_search;
+  $('#t-att').innerHTML = `Switching from first-touch to last-touch removes <b>${pct(1-pl/pf)}</b> of paid search's customers, because many paid-search visitors come back via direct or email to buy. Picking a model is a business decision, so the BI layer exposes all four.`;
+  const chosen = D.mmm.models.find(m => m.chosen), base = D.mmm.models.find(m => m.model.startsWith('baseline'));
+  $('#t-fit').innerHTML = `The adstock + saturation model beats a no-media baseline on held-out weeks (test R² <b>${chosen.r2.toFixed(2)}</b> vs ${base.r2.toFixed(2)}), but that is modest. With 156 weekly points the model is best used to rank channels, not to set exact budgets.`;
+  $('#t-cal').innerHTML = `The MMM <b>under-states paid search</b> by about half compared with the geo test, and <b>over-states display</b>, whose holdout found nothing. Paid social's experiment sits inside the MMM interval, so for that channel the two methods agree.`;
+  $('#t-scen').innerHTML = `Cutting the budget 20% loses little; an equal split is clearly worse. The optimiser also wants more display, which the experiments contradict, so <b>only the paid-search shift is recommended</b>.`;
+}
+
+/* ---------- tables ---------- */
+function renderTables(){
+  const rows = D.channels.map(c => {
+    const act = ACTION[c.id];
+    return `<tr class="${c.paid ? '' : 'organic'}"><td><span class="sw" style="background:${c.paid ? col(c.id) : 'var(--line)'}"></span>${c.label}</td>
+      <td class="num">${c.paid ? usdk(c.spend) : '–'}</td><td class="num">${int(c.customers)}</td>
+      <td class="num">${c.paid ? usd(c.cac) : '–'}</td><td class="num">${c.paid ? usd(c.cac_loaded) : '–'}</td>
+      <td class="num">${usd(c.rev_per_customer_12m)}</td><td class="num">${pct(c.monthly_churn,1)}</td>
+      <td class="num">${usd(c.ltv_gp_36m)}</td><td class="num">${c.paid ? x2(c.ltv_cac) : '–'}</td>
+      <td class="num">${c.paid ? (c.payback_months ? c.payback_months + ' mo' : 'not reached') : '–'}</td>
+      <td>${act ? pill(act[0], act[1]) : pill('neutral', 'Organic / owned')}</td></tr>`;
+  }).join('');
+  $('#tbl-econ').innerHTML = `<thead><tr><th>Channel</th><th>Spend</th><th>Customers</th><th>CAC</th><th>Loaded CAC</th><th>12-mo revenue per cust.</th><th>Monthly churn</th><th>36-mo GP LTV</th><th>LTV : CAC</th><th>Payback</th><th>Call</th></tr></thead><tbody>${rows}</tbody>`;
+
+  const MN = {'controls_only (no media)':'Controls only (no media)', 'baseline_ols (raw spend)':'Baseline OLS, raw spend', 'improved (adstock + saturation)':'Adstock + saturation'};
+  $('#tbl-models').innerHTML = `<thead><tr><th>MMM candidate</th><th>Test R²</th><th>Test MAPE</th><th>Used</th></tr></thead><tbody>` +
+    D.mmm.models.map(m => `<tr><td>${MN[m.model] || m.model}</td><td class="num">${m.r2.toFixed(2)}</td><td class="num">${pct(m.mape,1)}</td><td>${m.chosen ? pill('good','Chosen') : ''}</td></tr>`).join('') + '</tbody>';
+  $('#tbl-diag').innerHTML = `<thead><tr><th>Model diagnostic</th><th>Value</th><th>Status</th></tr></thead><tbody>` +
+    D.mmm.diagnostics.map(d => `<tr><td title="${d.meaning}">${d.check}</td><td class="num">${Number(d.value).toFixed(d.value < 0.01 ? 4 : 2)}</td><td>${d.status === 'ok' ? pill('good','OK') : pill('warn','Flag')}</td></tr>`).join('') + '</tbody>';
+
+  const SK = [
+    ['Paid search, paid social and organic performance analysis', 'Channel and campaign marts, CAC (media and fully loaded), ROAS, funnel and cohort retention; brand-search cannibalisation in the weekly brief.'],
+    ['Experiments and geo-tests, with stated uncertainty', '3 user-level holdouts (SRM check, CIs, power, CACE) and a 40-region geo test (diff-in-diff, randomisation inference, placebo).'],
+    ['Unified marketing data products with Data Engineering', 'dbt staging → intermediate → marts → reporting star schema, 44 models and 135 tests, portable between DuckDB and BigQuery.'],
+    ['Combining attribution with experimental evidence', '4 attribution models in SQL, checked against a pandas reference, then reconciled with experiments and an MMM calibration table.'],
+    ['Narratives and visualisation for stakeholders', 'This page, a Looker Studio report, a Power BI spec and a generated business report, each labelled FACT, ESTIMATE or RECOMMENDATION.'],
+    ['AI tools to automate recurring reports, with accuracy checks', 'Deterministic weekly insight brief plus a guard-railed LLM prompt that may only use numbers the pipeline computed.'],
+    ['Documented definitions, methods and limitations; self-service analytics', 'Data dictionary, metric definitions, Looker calculated fields, analytics standards and a tracking plan for event streaming (RudderStack-style).'],
+    ['Marketing Mix Modelling (nice to have)', 'Adstock, lag and saturation, out-of-time test, bootstrap intervals, budget scenarios and calibration against experiments.'],
+  ];
+  $('#tbl-skills').innerHTML = '<thead><tr><th>The job asks for</th><th>Where this project shows it</th></tr></thead><tbody>' + SK.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('') + '</tbody>';
+
+  $('#pipe').innerHTML = [
+    ['Generate', '18 seeded tables, 156 weeks, byte-reproducible'],
+    ['Load', 'CSV → DuckDB locally, or BigQuery'],
+    ['Model', `dbt: <span class="num">${D.meta.dbt_models}</span> models, <span class="num">${D.meta.dbt_tests_passed}</span>/${D.meta.dbt_tests_passed + D.meta.dbt_tests_failed} tests pass`],
+    ['Analyse', 'Attribution, holdouts, geo-lift, lifecycle, MMM in Python'],
+    ['Publish', '27 BI tables, CSV exports with a catalog'],
+    ['Present', 'Looker Studio, this page, business report'],
+  ].map(([t, d]) => `<div><b>${t}</b>${d}</div>`).join('');
+
+  $('#limits').innerHTML = [
+    'All company, marketing and experiment data are synthetic, generated with a fixed seed. Results show the methods working, not real market performance.',
+    'Because the generator has a known ground truth, the tests check that each method recovers it. Real data would not offer that check.',
+    'Paid media enters journeys only as a first touch in the simulation, which flatters first-touch attribution.',
+    'The MMM has about 150 weekly points: residuals are autocorrelated and some channel intervals include zero (see diagnostics).',
+    'The 36-month LTV is a projection from months 3–12 churn; recent cohorts are right-censored.',
+  ].map(t => `<li>${t}</li>`).join('');
+
+  $('#foot-meta').textContent = `Data ${D.meta.data_start} to ${D.meta.data_end} · pipeline run ${D.meta.built} UTC · seed ${D.meta.seed}`;
+
+  const ps = ch('paid_search');
+  $('#recs').innerHTML = D.recommendations.slice().sort((a, b) => D.paid.indexOf(a.id) - D.paid.indexOf(b.id)).map(r => {
+    const act = ACTION[r.id];
+    return `<article class="rec"><div class="top"><h3><span class="sw" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${col(r.id)}"></span>${lab(r.id)}</h3>${pill(act[0], act[1])}</div>
+      <dl><div><dt>Evidence</dt><dd>${cap(r.evidence)}</dd></div><div><dt>Also considered</dt><dd>${cap(r.caveats)}</dd></div></dl></article>`;
+  }).join('');
+  const e3 = exp('EXP-003');
+  $('#plan').innerHTML = [
+    ['Scale non-brand paid search +10% inside a new geo holdout', 'Confirms the marginal return at higher spend before rolling out; the response curve says returns are still well short of saturation.'],
+    ['Pause display prospecting and re-test with enough power', 'Design the re-test to detect a 5% lift. Stop the spend meanwhile: every customer it buys loses money.'],
+    ['Rebuild paid social around incremental CAC', 'Keep lookalikes, cut the weakest audiences, and judge success on holdout-measured cost per incremental customer, not platform ROAS.'],
+    [`Re-run the affiliate pilot at ~${Math.round(e3.required_n/1000)}k users per arm`, 'The first pilot could not separate a zero effect from a large one. Exclude coupon sites, whose customers churn fastest.'],
+    ['Roll the onboarding email series out to all trials', 'Proven at 30, 90 and 180 days. Add a 6-month holdout group to keep measuring how long the effect lasts.'],
+  ].map(([b, s]) => `<li><div><b>${b}</b><span>${s}</span></div></li>`).join('');
+}
+
+/* ---------- SVG forest plots ---------- */
+const tip = $('#tip');
+function showTip(ev, html){ tip.innerHTML = html; tip.style.opacity = 1; const x = Math.min(ev.clientX + 14, window.innerWidth - 270); tip.style.left = x + 'px'; tip.style.top = (ev.clientY + 14) + 'px'; }
+function hideTip(){ tip.style.opacity = 0; }
+
+function forest(svg, rows, o){
+  const W = svg.parentElement.clientWidth || 500, labW = Math.min(o.labW || 170, W * 0.42), valW = 78, rowH = o.rowH || 38, top = 8, bot = 28;
+  const H = top + rows.length * rowH + bot, x0 = labW, x1 = W - valW;
+  const lo = o.min, hi = o.max, sx = (v) => x0 + (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo) * (x1 - x0);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('height', H);
+  let s = '';
+  (o.ticks || []).forEach(t => { s += `<line class="axis" x1="${sx(t)}" x2="${sx(t)}" y1="${top}" y2="${H-bot+4}"/><text x="${sx(t)}" y="${H-8}" text-anchor="middle" class="val">${o.fmtTick(t)}</text>`; });
+  if (o.ref != null) s += `<line class="zero" x1="${sx(o.ref)}" x2="${sx(o.ref)}" y1="${top}" y2="${H-bot+4}"/>`;
+  rows.forEach((r, i) => {
+    const y = top + i * rowH + rowH / 2, c = r.color || css('--accent');
+    s += `<text x="0" y="${y - (r.sub ? 4 : -4)}" class="lab">${r.label}</text>`;
+    if (r.sub) s += `<text x="0" y="${y + 11}" style="font-size:11px;fill:var(--muted)">${r.sub}</text>`;
+    s += `<rect x="${sx(r.lo)}" y="${y-3}" width="${Math.max(2, sx(r.hi) - sx(r.lo))}" height="6" rx="3" fill="${c}" opacity="${r.faded ? .35 : .8}"/>`;
+    s += `<circle cx="${sx(r.v)}" cy="${y}" r="5.5" fill="${c}" stroke="var(--surface)" stroke-width="2"/>`;
+    if (r.mark != null) s += `<path d="M${sx(r.mark)} ${y-7}l7 7-7 7-7-7z" fill="var(--ink)" stroke="var(--surface)" stroke-width="2"/>`;
+    s += `<text x="${W}" y="${y+4}" text-anchor="end" class="val">${r.valText}</text>`;
+    s += `<rect class="hit" x="0" y="${y - rowH/2}" width="${W}" height="${rowH}" data-i="${i}"/>`;
+  });
+  svg.innerHTML = s;
+  svg.querySelectorAll('.hit').forEach(h => { h.addEventListener('mousemove', ev => showTip(ev, rows[+h.dataset.i].tip)); h.addEventListener('mouseleave', hideTip); });
+}
+
+function renderForests(){
+  const pctTick = (t) => (t > 0 ? '+' : '') + Math.round(t*100) + '%';
+  forest($('#f-lift'), D.experiments.map(e => ({
+    label: lab(e.channel), sub: e.type, v: e.rel_lift, lo: e.lo, hi: e.hi, color: col(e.channel), faded: !e.significant,
+    valText: e.significant ? spct(e.rel_lift,0) : 'n.s.',
+    tip: `<b>${e.name}</b><br>Lift ${spct(e.rel_lift)} (95% CI ${spct(e.lo,0)} to ${spct(e.hi,0)})<br>p = ${e.p.toFixed(4)} · ${e.significant ? 'significant' : 'not significant'}`
+  })), {min:-0.2, max:0.75, ticks:[-0.2,0,0.25,0.5,0.75], ref:0, fmtTick:pctTick});
+
+  const lifeRev = D.lifecycle.filter(r => r.kind === 'per_user_usd').concat(D.lifecycle.filter(r => r.kind === 'rate' && r.horizon === 30));
+  forest($('#f-life'), lifeRev.map(r => ({
+    label: r.metric.replace(', per assigned user','').replace('Revenue per assigned user','Revenue / user'), sub: null, v: r.rel, lo: r.lo, hi: r.hi, color: css('--accent'),
+    valText: spct(r.rel), tip: `<b>${r.metric}</b><br>Control ${r.kind === 'rate' ? pct(r.control,1) : usd(r.control,2)} → treatment ${r.kind === 'rate' ? pct(r.treatment,1) : usd(r.treatment,2)}<br>Lift ${spct(r.rel)} (95% CI ${spct(r.lo)} to ${spct(r.hi)})`
+  })), {min:0, max:0.15, ticks:[0,0.05,0.1,0.15], ref:0, fmtTick:pctTick, rowH:34});
+
+  const cal = D.mmm.calibration.slice().sort((a, b) => D.paid.indexOf(a.id) - D.paid.indexOf(b.id));
+  forest($('#f-cal'), cal.map(c => ({
+    label: lab(c.id), sub: `vs ${c.exp}${c.exp_sig ? '' : ' (n.s.)'}`, v: c.mmm, lo: c.lo, hi: c.hi, mark: c.exp_roas, color: col(c.id),
+    valText: x2(c.mmm, 2), tip: `<b>${lab(c.id)}</b><br>MMM return per $1: ${c.mmm.toFixed(2)} (90% ${c.lo.toFixed(2)}–${c.hi.toFixed(2)})<br>Experiment ${c.exp}: ${c.exp_roas.toFixed(2)}<br>${c.reading}`
+  })), {min:-0.1, max:1.8, ticks:[0,0.5,1,1.5], ref:0, fmtTick:(t) => t.toFixed(1)});
+
+  forest($('#f-scen'), D.mmm.scenarios.filter(s => !s.name.startsWith('current')).map(s => ({
+    label: s.name.replace('optimised','Optimised').replace('equal split','Equal split'), sub: `${usd(s.budget)}/wk budget`, v: s.delta, lo: s.lo, hi: s.hi,
+    color: s.delta >= 0 ? css('--accent') : css('--s-organic'), valText: (s.delta >= 0 ? '+' : '−') + usd(Math.abs(s.delta)),
+    tip: `<b>${s.name}</b><br>Δ new MRR ${usd(s.delta)}/week (90% ${usd(s.lo)} to ${usd(s.hi)})<br>${pct(s.prob)} of bootstrap fits beat current<br>Search ${usd(s.spend.paid_search)} · Social ${usd(s.spend.paid_social)} · Display ${usd(s.spend.display)} · Affiliate ${usd(s.spend.affiliate)}`
+  })), {min:-1100, max:1600, ticks:[-1000,-500,0,500,1000,1500], ref:0, fmtTick:(t) => (t > 0 ? '+' : t < 0 ? '−' : '') + '$' + Math.abs(t)});
+}
+
+/* ---------- Chart.js charts ---------- */
+const charts = [];
+const refLines = {
+  id:'refLines',
+  afterDraw(c, a, opts){
+    if (!opts || !opts.lines) return;
+    const {ctx, chartArea:ca, scales} = c;
+    opts.lines.forEach(l => {
+      const sc = scales[l.axis]; const p = sc.getPixelForValue(l.value);
+      ctx.save(); ctx.strokeStyle = css('--muted'); ctx.setLineDash([4,4]); ctx.lineWidth = 1; ctx.beginPath();
+      if (l.axis === 'x') { ctx.moveTo(p, ca.top); ctx.lineTo(p, ca.bottom); } else { ctx.moveTo(ca.left, p); ctx.lineTo(ca.right, p); }
+      ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = css('--muted'); ctx.font = '11px Inter, system-ui, sans-serif';
+      if (l.axis === 'x') { ctx.textAlign = 'left'; ctx.fillText(l.label, p + 4, ca.top + 10); } else { ctx.textAlign = 'right'; ctx.fillText(l.label, ca.right, p - 4); }
+      ctx.restore();
+    });
+  }
+};
+const band = {
+  id:'band',
+  beforeDatasetsDraw(c, a, opts){
+    if (!opts || opts.from == null) return;
+    const {ctx, chartArea:ca, scales:{x}} = c;
+    const x0 = x.getPixelForValue(opts.from) - (opts.half ? x.width / x.ticks.length / 2 : 0);
+    ctx.save(); ctx.fillStyle = css('--surface-2'); ctx.fillRect(x0, ca.top, ca.right - x0, ca.bottom - ca.top); ctx.restore();
+  }
+};
+
+function baseOpts(extra){
+  const ink2 = css('--ink-2'), grid = css('--line'), muted = css('--muted');
+  return Chart.helpers.merge({
+    responsive:true, maintainAspectRatio:false, animation:false,
+    interaction:{mode:'index', intersect:false},
+    plugins:{legend:{display:false}, tooltip:{backgroundColor:css('--ink'), titleColor:css('--bg'), bodyColor:css('--bg'), padding:10, cornerRadius:6, boxPadding:4, usePointStyle:true}},
+    scales:{
+      x:{grid:{display:false}, border:{color:grid}, ticks:{color:muted, font:{size:11}, maxRotation:0, autoSkipPadding:14}},
+      y:{grid:{color:grid}, border:{display:false}, ticks:{color:muted, font:{size:11}}, beginAtZero:true}
+    }
+  }, extra || {});
+}
+
+function mk(id, cfg){ const c = new Chart(document.getElementById(id), cfg); charts.push(c); return c; }
+
+function renderCharts(){
+  charts.splice(0).forEach(c => c.destroy());
+  Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
+  const P = D.paid, paidCh = P.map(ch);
+  const bar = {borderRadius:4, borderSkipped:'start', maxBarThickness:28};
+
+  mk('c-ltvcac', {type:'bar', plugins:[refLines], data:{labels:paidCh.map(c => c.label), datasets:[{data:paidCh.map(c => c.ltv_cac), backgroundColor:P.map(col), ...bar}]},
+    options:baseOpts({indexAxis:'y', interaction:{mode:'nearest', axis:'y', intersect:false}, scales:{x:{grid:{color:css('--line')}, ticks:{callback:(v) => v + '×'}, max:4.5}, y:{grid:{display:false}, ticks:{color:css('--ink-2'), font:{size:12}}}},
+      plugins:{refLines:{lines:[{axis:'x', value:1, label:'break-even'}, {axis:'x', value:3, label:'scale bar'}]}, tooltip:{callbacks:{label:(t) => { const c = paidCh[t.dataIndex]; return [` LTV:CAC ${x2(c.ltv_cac,2)}`, ` 36-mo GP LTV ${usd(c.ltv_gp_36m)} · loaded CAC ${usd(c.cac_loaded)}`, ` Payback ${c.payback_months ? c.payback_months + ' months' : 'not reached'}`]; }}}}})});
+
+  mk('c-cac', {type:'bar', data:{labels:paidCh.map(c => c.label), datasets:[
+      {label:'Media only', data:paidCh.map(c => c.cac), backgroundColor:css('--s-organic'), ...bar},
+      {label:'Fully loaded', data:paidCh.map(c => c.cac_loaded), backgroundColor:css('--accent'), ...bar}]},
+    options:baseOpts({scales:{y:{ticks:{callback:(v) => '$' + v}}}, plugins:{tooltip:{callbacks:{label:(t) => ` ${t.dataset.label}: ${usd(t.raw)}`}}}})});
+
+  const M = D.monthly, mLabels = M.months.map(m => { const [y, mo] = m.split('-'); return new Date(+y, +mo-1, 1).toLocaleString('en-US', {month:'short'}) + (mo === '01' ? " '" + y.slice(2) : ''); });
+  $('#lg-spend').innerHTML = P.map(id => `<span><i style="background:${col(id)}"></i>${lab(id)}</span>`).join('');
+  mk('c-spend', {type:'bar', data:{labels:mLabels, datasets:P.map(id => ({label:lab(id), data:M.spend[id], backgroundColor:col(id), borderColor:css('--surface'), borderWidth:{top:1}, borderRadius:0, maxBarThickness:22}))},
+    options:baseOpts({scales:{x:{stacked:true, ticks:{autoSkip:true, maxTicksLimit:9}}, y:{stacked:true, ticks:{callback:(v) => usdk(v)}}},
+      plugins:{tooltip:{callbacks:{title:(t) => M.months[t[0].dataIndex], label:(t) => ` ${t.dataset.label}: ${usd(t.raw)}`, footer:(t) => 'Total ' + usd(t.reduce((a, b) => a + b.raw, 0)) + ' · CAC ' + usd(M.cac[t[0].dataIndex])}}}})});
+
+  const line = (label, data, color, extra) => ({label, data, borderColor:color, backgroundColor:color, borderWidth:2, pointRadius:0, pointHoverRadius:5, tension:.25, ...extra});
+  mk('c-cust', {type:'line', data:{labels:mLabels, datasets:[line('Paid channels', M.cust_paid, col('paid_search')), line('Organic & owned', M.cust_org, col('organic_owned'))]},
+    options:baseOpts({scales:{x:{ticks:{maxTicksLimit:9}}}, plugins:{tooltip:{callbacks:{title:(t) => M.months[t[0].dataIndex], label:(t) => ` ${t.dataset.label}: ${int(t.raw)}`}}}})});
+
+  const groups = [...P, 'organic_owned'];
+  const fs = D.funnel.stages, stepLab = ['Visit → pricing', 'Pricing → start signup', 'Start → finish signup', 'Signup → trial', 'Trial → paid'];
+  $('#lg-funnel').innerHTML = groups.map(g => `<span><i style="background:${col(g)}"></i>${lab(g)}</span>`).join('');
+  mk('c-funnel', {type:'bar', data:{labels:stepLab, datasets:groups.map(g => { const v = D.funnel.by[g]; return {label:lab(g), data:v.slice(1).map((x, i) => x / v[i]), backgroundColor:col(g), borderRadius:3, borderSkipped:'start', maxBarThickness:14}; })},
+    options:baseOpts({scales:{x:{ticks:{font:{size:10.5}, autoSkip:false}}, y:{max:1, ticks:{callback:(v) => Math.round(v*100) + '%'}}}, plugins:{tooltip:{callbacks:{label:(t) => ` ${t.dataset.label}: ${pct(t.raw,1)}`}}}})});
+
+  $('#lg-ret').innerHTML = groups.map(g => `<span><i class="line" style="background:${col(g)}"></i>${lab(g)}</span>`).join('');
+  const rLen = Math.max(...groups.map(g => D.retention[g].length));
+  mk('c-ret', {type:'line', data:{labels:[...Array(rLen).keys()].map(m => m === 0 ? 'Start' : 'M' + m), datasets:groups.map(g => line(lab(g), D.retention[g], col(g), {borderDash:g === 'organic_owned' ? [5,4] : []}))},
+    options:baseOpts({scales:{x:{ticks:{maxTicksLimit:9}}, y:{min:0, max:1, ticks:{callback:(v) => Math.round(v*100) + '%'}}}, plugins:{tooltip:{itemSort:(a, b) => b.raw - a.raw, callbacks:{title:(t) => t[0].dataIndex === 0 ? 'Month of first payment' : `${t[0].dataIndex} months after first payment`, label:(t) => ` ${t.dataset.label}: ${pct(t.raw,1)}`}}}})});
+
+  const ex = D.experiments;
+  mk('c-roas', {type:'bar', data:{labels:ex.map(e => [lab(e.channel), e.id]), datasets:[
+      {label:'Attributed', data:ex.map(e => e.attributed_roas), backgroundColor:css('--s-organic'), ...bar},
+      {label:'Incremental', data:ex.map(e => Math.max(0, e.incremental_roas)), backgroundColor:css('--accent'), ...bar}]},
+    options:baseOpts({plugins:{refLines:{lines:[{axis:'y', value:1, label:'$1 back per $1'}]}, tooltip:{callbacks:{label:(t) => { const e = ex[t.dataIndex]; const v = t.datasetIndex ? e.incremental_roas : e.attributed_roas; return v == null ? ` ${t.dataset.label}: not measured (geo test)` : ` ${t.dataset.label}: ${v.toFixed(2)}`; }}}}, scales:{x:{ticks:{color:css('--ink-2')}}, y:{ticks:{callback:(v) => v.toFixed(1)}}}}), plugins:[refLines]});
+
+  const G = D.geo_weekly, gStart = G.weeks.indexOf(G.test_start);
+  mk('c-geo', {type:'line', plugins:[band, refLines], data:{labels:G.weeks.map(w => new Date(w + 'T00:00').toLocaleString('en-US', {month:'short', day:'numeric'})), datasets:[line('Treatment regions', G.treatment, col('paid_search'), {pointRadius:2.5}), line('Control regions', G.control, col('organic_owned'), {pointRadius:2.5})]},
+    options:baseOpts({scales:{x:{ticks:{maxTicksLimit:6}}, y:{beginAtZero:false, ticks:{callback:(v) => v.toFixed(2)}}}, plugins:{band:{from:gStart, half:true}, refLines:{lines:[{axis:'y', value:1, label:''}]}, tooltip:{callbacks:{title:(t) => 'Week of ' + G.weeks[t[0].dataIndex] + (t[0].dataIndex >= gStart ? ' · test' : ' · pre-period'), label:(t) => ` ${t.dataset.label}: ${t.raw.toFixed(3)}`}}}})});
+
+  const models = ['first_touch', 'position_based', 'linear', 'last_touch'], mName = {first_touch:'First touch', last_touch:'Last touch', linear:'Linear', position_based:'Position-based (40/20/40)'};
+  const ramp = ['#0d6b70', '#3f9396', '#7db8ba', '#b5d6d7'], rampD = ['#5cc0c2', '#3f9a9c', '#2b7476', '#1d5254'];
+  const dark = css('color-scheme') === 'dark' || document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+  const R = dark ? rampD : ramp;
+  $('#lg-att').innerHTML = models.map((m, i) => `<span><i style="background:${R[i]}"></i>${mName[m]}</span>`).join('');
+  mk('c-att', {type:'bar', data:{labels:P.map(lab), datasets:models.map((m, i) => ({label:mName[m], data:P.map(id => D.attribution[m][id]), backgroundColor:R[i], borderRadius:3, borderSkipped:'start', maxBarThickness:22}))},
+    options:baseOpts({plugins:{tooltip:{callbacks:{label:(t) => ` ${t.dataset.label}: ${int(t.raw)} customers`}}}})});
+
+  const F = D.mmm.fit, fStart = F.weeks.indexOf(F.test_start);
+  mk('c-fit', {type:'line', plugins:[band], data:{labels:F.weeks.map(w => w.slice(0,7)), datasets:[line('Actual', F.actual, col('organic_owned'), {borderWidth:1.5}), line('Fitted', F.fitted, css('--accent'))]},
+    options:baseOpts({scales:{x:{ticks:{maxTicksLimit:7}}, y:{ticks:{callback:(v) => usdk(v)}}}, plugins:{band:{from:fStart}, tooltip:{callbacks:{title:(t) => 'Week of ' + F.weeks[t[0].dataIndex] + (t[0].dataIndex >= fStart ? ' · held out' : ''), label:(t) => ` ${t.dataset.label}: ${usd(t.raw)}`}}}})});
+
+  $('#lg-resp').innerHTML = P.map(id => `<span><i class="line" style="background:${col(id)}"></i>${lab(id)}</span>`).join('');
+  const ds = [];
+  P.forEach(id => {
+    const r = D.mmm.response[id], m = D.mmm.channels.find(c => c.id === id);
+    ds.push({type:'line', label:lab(id), data:r.x.map((x, i) => ({x, y:r.y[i]})), borderColor:col(id), backgroundColor:col(id), borderWidth:2, pointRadius:0, pointHoverRadius:4, tension:.3});
+    const yAt = r.x.reduce((best, x, i) => Math.abs(x - m.weekly_spend) < Math.abs(r.x[best] - m.weekly_spend) ? i : best, 0);
+    ds.push({type:'scatter', label:lab(id) + ' (current)', data:[{x:m.weekly_spend, y:r.y[yAt]}], backgroundColor:col(id), borderColor:css('--surface'), borderWidth:2, pointRadius:6, pointHoverRadius:8});
+  });
+  mk('c-resp', {data:{datasets:ds}, options:baseOpts({interaction:{mode:'nearest', intersect:false}, scales:{x:{type:'linear', max:12000, grid:{display:false}, ticks:{callback:(v) => usdk(v)}, title:{display:true, text:'Weekly spend', color:css('--muted'), font:{size:11}}}, y:{ticks:{callback:(v) => v >= 1000 ? '$' + (v/1000).toFixed(1) + 'k' : '$' + v}, title:{display:true, text:'Weekly new MRR', color:css('--muted'), font:{size:11}}}},
+    plugins:{tooltip:{callbacks:{title:() => '', label:(t) => ` ${t.dataset.label}: ${usd(t.raw.x)}/wk → ${usd(t.raw.y)} new MRR`}}}})});
+}
+
+function renderAll(){ renderText(); renderTables(); renderForests(); if (window.Chart) renderCharts(); }
+renderAll();
+
+/* re-render on theme and size changes */
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', renderAll);
+new MutationObserver(renderAll).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(renderForests, 150); });
+
+/* highlight the section in view */
+const links = [...document.querySelectorAll('.nav a')];
+const io = new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) links.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id)); }), {rootMargin:'-40% 0px -55% 0px'});
+document.querySelectorAll('section.band').forEach(s => io.observe(s));
+</script>
