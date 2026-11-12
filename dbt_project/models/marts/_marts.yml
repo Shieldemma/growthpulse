@@ -1,0 +1,55 @@
+version: 2
+models:
+  - name: fct_payments
+    description: "Grain: one row per payment. Net amount = gross - refunds (dated by original payment date)."
+    columns:
+      - {name: payment_id, tests: [unique, not_null]}
+      - {name: net_amount_usd, tests: [non_negative]}
+      - {name: refunded_usd, tests: [non_negative]}
+    tests:
+      - expression_is_true: {expression: "refunded_usd <= gross_amount_usd + 0.005"}
+  - name: fct_customer_revenue
+    description: "Grain: one row per paying customer. Revenue by first 1/3/6/12 billing cycles plus observation flags."
+    columns:
+      - {name: customer_id, tests: [unique, not_null]}
+      - {name: net_revenue_usd, tests: [non_negative]}
+    tests:
+      - expression_is_true: {expression: "net_revenue_m3 <= net_revenue_m6 + 0.005 and net_revenue_m6 <= net_revenue_m12 + 0.005 and net_revenue_m12 <= net_revenue_usd + 0.005"}
+  - name: fct_marketing_spend
+    description: "Grain: spend_date x campaign_id."
+    columns:
+      - {name: spend_usd, tests: [non_negative]}
+  - name: dim_customers
+    description: "Grain: one row per customer."
+    columns:
+      - {name: customer_id, tests: [unique, not_null]}
+      - {name: segment, tests: [{accepted_values: {values: [smb, mid_market, enterprise]}}]}
+  - name: mart_marketing_performance
+    description: >
+      Grain: metric_date x attribution_model x channel_name x campaign_id. Filter to ONE attribution model before summing.
+    columns:
+      - {name: attribution_model, tests: [not_null]}
+      - {name: spend_usd, tests: [non_negative]}
+      - {name: new_customers, tests: [non_negative]}
+  - name: mart_channel_unit_economics
+    description: >
+      Grain: acquisition_month x attribution_model x channel_name. CAC (paid media and fully loaded), ROAS and LTV windows.
+      Ratios are NULL when the denominator is zero or the cohort window is not yet fully observed.
+    columns:
+      - {name: cac_paid_media, tests: [non_negative]}
+      - {name: roas_m3, tests: [non_negative]}
+  - name: mart_customer_retention
+    description: "Grain: cohort_month x acquisition_channel x months_since_start (only observable cells)."
+    tests:
+      - expression_is_true: {expression: "customers_retained <= customers_observed"}
+  - name: mart_growth_funnel
+    description: "Grain: first_session_date x channel x campaign x device (visitor first-touch cohorts)."
+    columns:
+      - {name: visitors, tests: [not_null]}
+  - name: mart_mmm_weekly
+    description: "Grain: one row per week. Outcome new_mrr_usd, 4 paid spend columns, promo_share control."
+    columns:
+      - {name: week_start, tests: [unique, not_null]}
+      - {name: promo_share, tests: [{between_values: {lo: 0, hi: 1}}]}
+  - name: mart_attribution_comparison
+    description: "Grain: attribution_model x channel_name."
