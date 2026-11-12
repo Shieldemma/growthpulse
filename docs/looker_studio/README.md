@@ -1,6 +1,6 @@
 # Looker Studio implementation guide (primary BI layer)
 
-> **Status — read first.** No Looker Studio report was created by the author: that needs your Google account, and Looker Studio has no public API to create or edit report pages. What *is* provided and verified locally: the BigQuery-ready tables (built and tested on DuckDB with identical SQL), their field definitions, calculated-field formulas, a page-by-page report specification, and a script that generates one-click data-source links (`datasource_links.md`, built from Google's documented Linking API; **unverified** until you click them). Menu names below follow Looker Studio's UI as documented at the time of writing and may have moved; trust the intent, not the exact label.
+> **Status.** A live two-page report is published: [GrowthPulse in Looker Studio](https://datastudio.google.com/reporting/2f3edcc5-b54e-4ac4-a770-fde083e9f55f) (executive overview; incrementality & budget). It runs on the CSV exports in `dashboard/bi_exports/` and the tidy files in `dashboard/looker_ready/`. This guide is the full specification for an 8-page version on BigQuery. The one-click data-source links in `datasource_links.md` follow Google's documented Linking API and have not been clicked against a live project. Menu names may have moved since writing; trust the intent, not the exact label.
 > All data are **SYNTHETIC**. Put a text box "Synthetic data — not real company performance" on every page.
 
 ## 0. What you will build
