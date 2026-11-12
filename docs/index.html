@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GrowthPulse Growth Analytics</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Growth analytics case study: CAC, LTV, ROAS, attribution vs incrementality, geo-lift, lifecycle tests and a marketing mix model, built with dbt, DuckDB/BigQuery and Python.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: an analyst's case file. Sticky section nav, answers first, then one band per method, evidence under each claim. */
+:root{
+  --bg:#f3f6f7; --surface:#ffffff; --surface-2:#eaf0f2; --ink:#0f1c25; --ink-2:#3c4c58; --muted:#66757f; --line:#d9e1e5;
+  --accent:#0d6b70; --accent-soft:#d8eeee;
+  --good:#18794e; --good-bg:#dcf2e6; --warn:#9a6200; --warn-bg:#fbefd5; --bad:#b4371f; --bad-bg:#fbe3dc;
+  --s-search:#2a78d6; --s-social:#eb6834; --s-display:#1baf7a; --s-affiliate:#eda100; --s-organic:#8a94a3;
+  --font-display:"Bricolage Grotesque", "Inter", system-ui, sans-serif;
+  --font-body:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --radius:10px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0c1318; --surface:#131c23; --surface-2:#1a252d; --ink:#e7edf1; --ink-2:#b4c0c8; --muted:#8a99a4; --line:#24313a;
+  --accent:#5cc0c2; --accent-soft:#16363a;
+  --good:#5fd39b; --good-bg:#123426; --warn:#f0b54a; --warn-bg:#3a2c10; --bad:#ff8a70; --bad-bg:#3d1c15;
+  --s-search:#3987e5; --s-social:#d95926; --s-display:#199e70; --s-affiliate:#c98500; --s-organic:#7d8796;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0c1318; --surface:#131c23; --surface-2:#1a252d; --ink:#e7edf1; --ink-2:#b4c0c8; --muted:#8a99a4; --line:#24313a;
+  --accent:#5cc0c2; --accent-soft:#16363a;
+  --good:#5fd39b; --good-bg:#123426; --warn:#f0b54a; --warn-bg:#3a2c10; --bad:#ff8a70; --bad-bg:#3d1c15;
+  --s-search:#3987e5; --s-social:#d95926; --s-display:#199e70; --s-affiliate:#c98500; --s-organic:#7d8796;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.55;margin:0;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+a{color:var(--accent)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+h2{font-size:clamp(1.45rem,2.6vw,1.9rem);line-height:1.15}
+h3{font-size:1.02rem;font-weight:700;line-height:1.3}
+p{margin:0}
+.eyebrow{font-size:.72rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+
+/* top bar */
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.topbar .wrap{display:flex;align-items:center;gap:20px;min-height:56px}
+.brand{font-family:var(--font-display);font-weight:700;font-size:1.1rem;color:var(--ink);text-decoration:none;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.brand svg{flex:none}
+.nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}
+.nav::-webkit-scrollbar{display:none}
+.nav a{padding:6px 10px;border-radius:6px;color:var(--ink-2);text-decoration:none;font-size:.86rem;white-space:nowrap}
+.nav a:hover,.nav a.on{background:var(--surface-2);color:var(--ink)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:4px 9px;border-radius:999px;background:var(--warn-bg);color:var(--warn);white-space:nowrap}
+
+/* hero */
+.hero{padding-block:44px 28px}
+.hero h1{font-size:clamp(2rem,5vw,3.3rem);line-height:1.05;max-width:17ch;margin-top:10px}
+.hero .lede{font-size:1.08rem;color:var(--ink-2);max-width:62ch;margin-top:16px}
+.verdict{margin-top:22px;padding:16px 18px;border-radius:var(--radius);background:var(--accent-soft);color:var(--ink);max-width:78ch;font-size:1rem}
+.verdict b{color:var(--accent)}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:28px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;min-width:0}
+.kpi .v{font-family:var(--font-mono);font-size:1.6rem;font-weight:500;margin-top:4px;letter-spacing:-.02em}
+.kpi .s{font-size:.8rem;color:var(--muted);margin-top:2px}
+.kpi.alert .v{color:var(--bad)}
+
+/* sections */
+section.band{padding-block:40px;border-top:1px solid var(--line)}
+.sec-head{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin-bottom:22px;max-width:76ch}
+.sec-head p{color:var(--ink-2)}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;min-width:0;display:flex;flex-direction:column;gap:10px}
+.card .sub{font-size:.85rem;color:var(--muted)}
+.card .take{font-size:.9rem;color:var(--ink-2);border-top:1px dashed var(--line);padding-top:10px;margin-top:auto}
+.card .take b{color:var(--ink)}
+.chart{position:relative;height:280px;width:100%}
+.chart.tall{height:330px}
+.chart.short{height:220px}
+
+/* answers */
+.qa{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.q{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:8px;text-decoration:none;color:inherit;min-width:0;transition:border-color .15s}
+.q:hover{border-color:var(--accent)}
+.q .qn{font-family:var(--font-mono);font-size:.75rem;color:var(--accent)}
+.q h3{font-size:1rem}
+.q p{color:var(--ink-2);font-size:.92rem}
+.q .stat{font-family:var(--font-mono);font-size:1.25rem;color:var(--ink);margin-top:auto;padding-top:6px}
+.q .stat small{font-family:var(--font-body);font-size:.78rem;color:var(--muted);display:block}
+
+/* legend */
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.8rem;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.legend i.line{height:3px;border-radius:2px;width:14px}
+
+/* tables */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.86rem}
+th,td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{white-space:normal;line-height:1.25;font-weight:600;color:var(--muted);font-size:.74rem;text-transform:uppercase;letter-spacing:.05em;background:var(--surface-2)}
+td:first-child,th:first-child{text-align:left}
+tr:last-child td{border-bottom:none}
+td .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:8px;vertical-align:0}
+tr.organic td{color:var(--ink-2)}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:.74rem;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap;font-family:var(--font-body)}
+.pill.good{background:var(--good-bg);color:var(--good)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.pill.neutral{background:var(--surface-2);color:var(--ink-2)}
+.pill svg{width:11px;height:11px}
+
+/* forest plots (SVG) */
+.forest{width:100%;display:block;overflow:visible}
+.forest text{font-family:var(--font-body);font-size:12px;fill:var(--ink-2)}
+.forest .lab{fill:var(--ink);font-weight:500}
+.forest .val{font-family:var(--font-mono);font-size:11.5px;fill:var(--muted)}
+.forest .axis{stroke:var(--line)}
+.forest .zero{stroke:var(--muted);stroke-dasharray:3 3}
+.forest .hit{fill:transparent;cursor:default}
+
+/* recommendations */
+.recs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.rec{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.rec .top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.rec .top h3{display:flex;align-items:center;gap:8px}
+.rec dl{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:0;font-size:.88rem}
+.rec dt{font-size:.7rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.rec dd{margin:0;color:var(--ink-2)}
+.plan{counter-reset:step;display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.plan li{display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px;align-items:start;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+.plan li::before{counter-increment:step;content:counter(step);font-family:var(--font-mono);font-size:.85rem;width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center}
+.plan b{display:block;margin-bottom:2px}
+.plan span{color:var(--ink-2);font-size:.9rem}
+
+/* pipeline + skills */
+.pipe{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.pipe div{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px;font-size:.84rem;color:var(--ink-2);min-width:0}
+.pipe b{display:block;color:var(--ink);font-size:.9rem;margin-bottom:4px}
+.pipe .num{color:var(--accent)}
+.skills td,.skills th{white-space:normal;text-align:left;vertical-align:top}
+.skills td:first-child{font-weight:500;width:34%}
+.notes{font-size:.86rem;color:var(--ink-2);display:grid;gap:6px;padding-left:18px;margin:0}
+
+/* tooltip */
+#tip{position:fixed;pointer-events:none;z-index:50;background:var(--ink);color:var(--bg);font-size:.8rem;padding:7px 10px;border-radius:6px;max-width:260px;opacity:0;transition:opacity .08s;line-height:1.4}
+#tip b{font-weight:600}
+
+footer{border-top:1px solid var(--line);padding-block:28px 40px;color:var(--muted);font-size:.85rem}
+footer .wrap{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-between}
+
+@media (max-width:980px){
+  .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .qa,.g3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pipe{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width:680px){
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi:last-child{grid-column:1/-1}
+  .qa,.g2,.g3,.recs{grid-template-columns:minmax(0,1fr)}
+  .pipe{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .topbar .chip{display:none}
+  .chart{height:250px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+</style>
+
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="GrowthPulse, back to top">
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="6" fill="var(--accent)"/><path d="M5 14h3l2-5 3 8 2-5h4" fill="none" stroke="var(--surface)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      GrowthPulse
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#answers">Answers</a>
+      <a href="#economics">Unit economics</a>
+      <a href="#funnel">Funnel &amp; retention</a>
+      <a href="#incrementality">Incrementality</a>
+      <a href="#mmm">MMM &amp; budget</a>
+      <a href="#actions">Actions</a>
+      <a href="#build">How it's built</a>
+    </nav>
+    <span class="chip" title="All company, marketing and experiment data are simulated">Synthetic data</span>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap hero">
+    <div class="eyebrow">Growth analytics case study · subscription software for vacation-rental hosts (fictional)</div>
+    <h1>Where should the next marketing dollar go?</h1>
+    <p class="lede" id="lede">Three years of acquisition data across eight channels, read four ways: unit economics, multi-touch attribution, randomised experiments and a marketing mix model. Each method answers a different question, and this page shows where they agree and where they don't.</p>
+    <p class="verdict" id="verdict"></p>
+    <div class="kpis" id="kpis"></div>
+  </div>
+
+  <section class="band" id="answers">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">The brief</div>
+        <h2>Six questions a growth team asks, answered</h2>
+        <p>Each answer links to the evidence below. Figures are first-touch unless stated; ratios are ratio-of-sums; 12-month figures use only cohorts observed for a full 12 months.</p>
+      </div>
+      <div class="qa" id="qa"></div>
+    </div>
+  </section>
+
+  <section class="band" id="economics">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">01 · Unit economics</div>
+        <h2>Paid search earns its keep. Display and paid social don't.</h2>
+        <p>Projected 36-month gross-profit LTV against fully loaded CAC (media plus team, tools, agency and creative). Below 1.0 a channel loses money on every customer; 3.0 is the usual bar for scaling.</p>
+      </div>
+      <div class="grid g2">
+        <div class="card">
+          <h3>LTV : CAC by paid channel</h3>
+          <div class="sub">Projected 36-month gross profit ÷ fully loaded CAC</div>
+          <div class="chart short"><canvas id="c-ltvcac" role="img" aria-label="LTV to CAC ratio by paid channel"></canvas></div>
+          <p class="take" id="t-ltvcac"></p>
+        </div>
+        <div class="card">
+          <h3>Cost to acquire one paying customer</h3>
+          <div class="sub">Media-only CAC and fully loaded CAC, USD</div>
+          <div class="legend"><span><i style="background:var(--s-organic)"></i>Media only</span><span><i style="background:var(--accent)"></i>Fully loaded</span></div>
+          <div class="chart short"><canvas id="c-cac" role="img" aria-label="CAC by paid channel"></canvas></div>
+          <p class="take" id="t-cac"></p>
+        </div>
+        <div class="card">
+          <h3>Monthly paid media spend</h3>
+          <div class="sub">USD per month, stacked by channel</div>
+          <div class="legend" id="lg-spend"></div>
+          <div class="chart"><canvas id="c-spend" role="img" aria-label="Monthly paid spend by channel"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>New paying customers per month</h3>
+          <div class="sub">Paid channels vs organic and owned channels</div>
+          <div class="legend"><span><i class="line" style="background:var(--s-search)"></i>Paid channels</span><span><i class="line" style="background:var(--s-organic)"></i>Organic &amp; owned</span></div>
+          <div class="chart"><canvas id="c-cust" role="img" aria-label="New paying customers per month"></canvas></div>
+        </div>
+      </div>
+      <div class="tbl-wrap" style="margin-top:16px">
+        <table id="tbl-econ" aria-label="Channel unit economics"></table>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="funnel">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">02 · Funnel &amp; retention</div>
+        <h2>The biggest leak is the signup form. The cheapest customers churn fastest.</h2>
+        <p>Step conversion from first visit to first payment, and the share of each channel's customers still paying N months after they started.</p>
+      </div>
+      <div class="grid g2">
+        <div class="card">
+          <h3>Step conversion by acquisition source</h3>
+          <div class="sub">% of the previous step that reached the next one</div>
+          <div class="legend" id="lg-funnel"></div>
+          <div class="chart tall"><canvas id="c-funnel" role="img" aria-label="Funnel step conversion by channel"></canvas></div>
+          <p class="take" id="t-funnel"></p>
+        </div>
+        <div class="card">
+          <h3>Customer retention curve</h3>
+          <div class="sub">% of customers still paying, by months since first payment</div>
+          <div class="legend" id="lg-ret"></div>
+          <div class="chart tall"><canvas id="c-ret" role="img" aria-label="Retention curves by channel"></canvas></div>
+          <p class="take" id="t-ret"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="incrementality">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">03 · Attribution vs incrementality</div>
+        <h2>Attribution says every channel works. The holdout tests disagree.</h2>
+        <p>Attribution tells you who touched a customer; only a randomised holdout tells you whether the ad caused the purchase. Four experiments were run: three user-level holdouts and one geo test with difference-in-differences.</p>
+      </div>
+      <div class="grid g2">
+        <div class="card">
+          <h3>Attributed ROAS vs incremental ROAS</h3>
+          <div class="sub">Revenue per ad dollar during each test: credited by attribution vs caused, per the holdout</div>
+          <div class="legend"><span><i style="background:var(--s-organic)"></i>Attributed</span><span><i style="background:var(--accent)"></i>Incremental (experiment)</span></div>
+          <div class="chart short"><canvas id="c-roas" role="img" aria-label="Attributed versus incremental ROAS"></canvas></div>
+          <p class="take" id="t-roas"></p>
+        </div>
+        <div class="card">
+          <h3>Measured lift, with 95% confidence intervals</h3>
+          <div class="sub">Relative lift in paid conversions, treatment vs holdout</div>
+          <svg class="forest" id="f-lift" role="img" aria-label="Experiment lift with confidence intervals"></svg>
+          <p class="take" id="t-lift"></p>
+        </div>
+        <div class="card">
+          <h3>Geo test: paid search non-brand switched on in 20 of 40 regions</h3>
+          <div class="sub">Daily paid conversions per region, indexed to the 8-week pre-period (1.00 = normal)</div>
+          <div class="legend"><span><i class="line" style="background:var(--s-search)"></i>Treatment regions</span><span><i class="line" style="background:var(--s-organic)"></i>Control regions</span><span><i style="background:var(--surface-2);border:1px solid var(--line)"></i>Test period</span></div>
+          <div class="chart"><canvas id="c-geo" role="img" aria-label="Geo test weekly conversions indexed"></canvas></div>
+          <p class="take" id="t-geo"></p>
+        </div>
+        <div class="card">
+          <h3>Lifecycle test: 5-email trial onboarding series</h3>
+          <div class="sub">Relative lift vs holdout at 30, 90 and 180 days, with 95% CIs</div>
+          <svg class="forest" id="f-life" role="img" aria-label="Lifecycle email lift by horizon"></svg>
+          <p class="take" id="t-life"></p>
+        </div>
+        <div class="card" style="grid-column:1/-1">
+          <h3>How much credit each attribution model gives</h3>
+          <div class="sub">Paying customers credited to each paid channel, 2023–2025. Same data, four rules.</div>
+          <div class="legend" id="lg-att"></div>
+          <div class="chart short"><canvas id="c-att" role="img" aria-label="Customers credited by attribution model"></canvas></div>
+          <p class="take" id="t-att"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="mmm">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">04 · Marketing mix model &amp; budget</div>
+        <h2>The MMM points the same way on search, and gets display wrong.</h2>
+        <p>A weekly regression of new MRR on adstocked, saturated spend per channel, with trend, seasonality and promotions as controls. It was trained on the first 80% of weeks and scored on the last 20%, then checked against the experiments.</p>
+      </div>
+      <div class="grid g2">
+        <div class="card">
+          <h3>Model fit on weekly new MRR</h3>
+          <div class="sub">Actual vs fitted, USD per week. Shaded weeks were held out for testing.</div>
+          <div class="legend"><span><i class="line" style="background:var(--s-organic)"></i>Actual</span><span><i class="line" style="background:var(--accent)"></i>Fitted</span></div>
+          <div class="chart"><canvas id="c-fit" role="img" aria-label="MMM fit actual versus fitted"></canvas></div>
+          <p class="take" id="t-fit"></p>
+        </div>
+        <div class="card">
+          <h3>MMM return per $1 vs what the experiments measured</h3>
+          <div class="sub">Bar: MMM 90% interval · dot: MMM mean · diamond: experiment's incremental ROAS</div>
+          <svg class="forest" id="f-cal" role="img" aria-label="MMM ROI intervals versus experiment results"></svg>
+          <p class="take" id="t-cal"></p>
+        </div>
+        <div class="card">
+          <h3>Diminishing returns by channel</h3>
+          <div class="sub">Predicted weekly new MRR at each weekly spend level; dot = current spend</div>
+          <div class="legend" id="lg-resp"></div>
+          <div class="chart"><canvas id="c-resp" role="img" aria-label="Response curves by channel"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>Budget scenarios</h3>
+          <div class="sub">Change in weekly new MRR vs current mix, 90% interval from 300 bootstrap fits</div>
+          <svg class="forest" id="f-scen" role="img" aria-label="Budget scenario outcomes"></svg>
+          <p class="take" id="t-scen"></p>
+        </div>
+      </div>
+      <div class="grid g2" style="margin-top:16px">
+        <div class="tbl-wrap"><table id="tbl-models" aria-label="MMM model comparison"></table></div>
+        <div class="tbl-wrap"><table id="tbl-diag" aria-label="MMM diagnostics"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="actions">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">05 · Recommendations</div>
+        <h2>What I would do next quarter</h2>
+        <p>Each call combines lifetime economics, the experiments and the MMM. When they disagree, causal evidence and economics outrank the model.</p>
+      </div>
+      <div class="recs" id="recs"></div>
+      <h3 style="margin:28px 0 12px">90-day test plan</h3>
+      <ol class="plan" id="plan"></ol>
+    </div>
+  </section>
+
+  <section class="band" id="build">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">06 · How it's built</div>
+        <h2>A production-shaped pipeline, tested end to end</h2>
+        <p>The same dbt project runs on DuckDB locally and on BigQuery. Every number on this page is read from the BI export tables the pipeline writes.</p>
+      </div>
+      <div class="pipe" id="pipe"></div>
+      <h3 style="margin:28px 0 12px">Skills shown, mapped to a Senior Growth / Marketing Data Analyst brief</h3>
+      <div class="tbl-wrap"><table class="skills" id="tbl-skills" aria-label="Skills map"></table></div>
+      <h3 style="margin:28px 0 10px">Read with care</h3>
+      <ul class="notes" id="limits"></ul>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Built by Otuekong Emmanuel · <a href="https://github.com/shieldemma/growthpulse">github.com/shieldemma/growthpulse</a></span>
+    <span id="foot-meta"></span>
+  </div>
+</footer>
+<div id="tip" role="tooltip"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<script>
+const D = {"meta":{"data_start":"2023-01-02","data_end":"2025-12-28","built":"2026-11-12 14:23","dbt_models":44,"dbt_tests_passed":135,"dbt_tests_failed":0,"seed":42,"synthetic":true},"labels":{"paid_search":"Paid search","paid_social":"Paid social","display":"Display","affiliate":"Affiliate","organic_search":"Organic search","direct":"Direct","referral":"Referral","email":"Email"},"paid":["paid_search","paid_social","display","affiliate"],"kpis":{"paid_spend":1658498.3,"paid_customers":3301.0,"total_customers":8242.0,"paid_cac":502.423,"paid_roas_m12":1.9416,"paid_share_of_spend_search":0.4011,"paid_share_of_customers_search":0.5907,"loss_making_spend_share":0.4776},"channels":[{"id":"paid_search","label":"Paid search","paid":true,"spend":665200.79,"customers":1950.0,"signups":5263.0,"cpc":8.5272,"cac":341.1286,"cac_loaded":479.4643,"rev_per_customer_12m":1223.309,"roas_12m":3.5558,"monthly_churn":0.0373,"ltv_gp_36m":1948.7085,"ltv_cac":4.0643,"payback_months":6.0},{"id":"paid_social","label":"Paid social","paid":true,"spend":537076.39,"customers":656.0,"signups":2399.0,"cpc":6.8493,"cac":818.714,"cac_loaded":1115.9121,"rev_per_customer_12m":768.498,"roas_12m":0.9543,"monthly_churn":0.0488,"ltv_gp_36m":1148.9352,"ltv_cac":1.0296,"payback_months":31.0},{"id":"display","label":"Display","paid":true,"spend":255094.71,"customers":230.0,"signups":1249.0,"cpc":2.5801,"cac":1109.1074,"cac_loaded":1509.3546,"rev_per_customer_12m":642.3401,"roas_12m":0.5999,"monthly_churn":0.0747,"ltv_gp_36m":801.3273,"ltv_cac":0.5309,"payback_months":null},{"id":"affiliate","label":"Affiliate","paid":true,"spend":201126.41,"customers":465.0,"signups":1618.0,"cpc":5.8701,"cac":432.5299,"cac_loaded":575.664,"rev_per_customer_12m":512.354,"roas_12m":1.2236,"monthly_churn":0.0793,"ltv_gp_36m":654.7382,"ltv_cac":1.1374,"payback_months":22.0},{"id":"organic_search","label":"Organic search","paid":false,"spend":0.0,"customers":2020.0,"signups":6077.0,"cpc":null,"cac":null,"cac_loaded":null,"rev_per_customer_12m":1270.8267,"roas_12m":null,"monthly_churn":0.032,"ltv_gp_36m":2116.0412,"ltv_cac":null,"payback_months":null},{"id":"direct","label":"Direct","paid":false,"spend":0.0,"customers":1677.0,"signups":4281.0,"cpc":null,"cac":null,"cac_loaded":null,"rev_per_customer_12m":1402.1576,"roas_12m":null,"monthly_churn":0.03,"ltv_gp_36m":2327.2987,"ltv_cac":null,"payback_months":null},{"id":"referral","label":"Referral","paid":false,"spend":0.0,"customers":628.0,"signups":1602.0,"cpc":null,"cac":null,"cac_loaded":null,"rev_per_customer_12m":1370.1116,"roas_12m":null,"monthly_churn":0.025,"ltv_gp_36m":2383.3014,"ltv_cac":null,"payback_months":null},{"id":"email","label":"Email","paid":false,"spend":0.0,"customers":616.0,"signups":1345.0,"cpc":null,"cac":null,"cac_loaded":null,"rev_per_customer_12m":1134.5488,"roas_12m":null,"monthly_churn":0.0243,"ltv_gp_36m":1992.8436,"ltv_cac":null,"payback_months":null}],"monthly":{"months":["2023-01","2023-02","2023-03","2023-04","2023-05","2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12"],"spend":{"paid_search":[12589.31,12639.52,15871.46,20744.72,21603.39,18046.96,15971.89,20898.92,16139.51,16392.25,18543.12,15556.8,14209.23,14455.06,16522.67,25336.38,14253.96,19328.77,21682.33,15284.71,17909.16,17263.33,7824.25,18087.9,15354.43,20201.47,19066.92,24234.61,31004.41,30471.5,19072.11,15437.2,38589.69,13871.11,18823.85,11917.89],"paid_social":[11208.99,13006.07,25224.89,14786.53,14773.68,20304.51,12093.55,9534.79,13743.87,13255.24,10068.34,11296.26,16075.26,13407.53,15650.91,14284.94,19615.46,20966.77,18039.16,9339.14,10252.81,15435.95,13795.09,14267.76,9451.56,7285.48,21511.79,24401.06,12524.26,18030.17,12528.81,12476.98,14813.36,17330.5,14521.54,21773.38],"display":[5043.11,4839.89,5044.26,7244.43,9314.96,7062.49,7619.41,7486.93,8052.7,5623.4,7745.79,7352.79,4708.86,4329.1,4977.23,6825.16,10588.97,8452.43,10295.69,7942.63,3925.51,5396.13,6067.66,5707.38,7111.96,5888.72,5203.06,7705.67,6832.74,8017.34,8637.88,7540.72,10797.32,4851.79,10973.82,9886.78],"affiliate":[4948.35,3103.02,6127.86,4311.03,7949.74,5881.77,6104.25,4118.33,2967.98,5433.94,4894.11,5338.27,5293.66,4289.2,4191.3,5354.38,5826.08,5596.74,8655.31,6209.62,5075.27,5545.91,4998.79,3842.82,6087.9,3255.61,9340.7,6204.89,8888.67,6413.5,5421.07,7613.13,6912.66,3670.27,4246.27,7014.01]},"cust_paid":[34.0,74.0,103.0,106.0,108.0,112.0,75.0,98.0,79.0,89.0,90.0,91.0,82.0,76.0,86.0,92.0,117.0,81.0,114.0,94.0,62.0,67.0,58.0,85.0,71.0,72.0,122.0,151.0,108.0,118.0,100.0,90.0,142.0,93.0,88.0,73.0],"cust_org":[38.0,98.0,117.0,115.0,94.0,95.0,101.0,102.0,106.0,126.0,119.0,98.0,101.0,132.0,156.0,132.0,133.0,153.0,136.0,113.0,132.0,184.0,160.0,126.0,169.0,184.0,171.0,168.0,161.0,172.0,183.0,129.0,178.0,204.0,189.0,166.0],"cac":[993.8165,453.8986,507.4609,444.2142,496.6831,457.9976,557.188,428.9691,517.7729,457.3576,458.3484,434.5508,491.305,480.0117,480.7222,563.0528,429.7818,670.9223,514.671,412.5117,599.3992,651.363,563.5481,493.0101,535.2937,508.7678,451.8235,414.2134,548.6119,533.3264,456.5987,478.5337,500.796,427.1362,551.8805,693.0419]},"funnel":{"stages":["visitors","pricing_viewers","signup_starters","signups","trials","paying_customers"],"all":[471214.0,245438.0,80714.0,23834.0,21912.0,8242.0],"by":{"affiliate":[32536.0,16629.0,5386.0,1618.0,1495.0,465.0],"display":[93933.0,39493.0,11230.0,1249.0,1150.0,230.0],"organic_owned":[196047.0,112719.0,38758.0,13305.0,12232.0,4941.0],"paid_search":[74144.0,41344.0,14487.0,5263.0,4834.0,1950.0],"paid_social":[74554.0,35253.0,10853.0,2399.0,2201.0,656.0]},"device":{"desktop":{"visitors":292276.0,"paying":6132.0},"mobile":{"visitors":150678.0,"paying":1665.0},"tablet":{"visitors":28260.0,"paying":445.0}}},"retention":{"affiliate":[1.0,0.8048,0.6993,0.6018,0.5346,0.4805,0.435,0.4116,0.3912,0.3519,0.3303,0.3121,0.2862,0.2648,0.2616,0.2647,0.2568,0.2407,0.2258,0.2157,0.1979,0.1585,0.142,0.1304,0.1325],"display":[1.0,0.8616,0.7454,0.6794,0.5821,0.5365,0.4862,0.4633,0.4343,0.4072,0.3827,0.3694,0.3378,0.3261,0.3015,0.2955,0.2778,0.2672,0.2294,0.2079,0.1935,0.2022,0.1707,0.1392,0.1233],"organic_owned":[1.0,0.9276,0.8775,0.833,0.8029,0.776,0.7564,0.7335,0.714,0.6962,0.677,0.6574,0.6372,0.6191,0.6045,0.5943,0.5775,0.5602,0.5454,0.5343,0.5221,0.513,0.4972,0.4869,0.4767],"paid_search":[1.0,0.9156,0.8368,0.7892,0.7526,0.711,0.6773,0.6548,0.6366,0.6128,0.5953,0.5899,0.5607,0.5518,0.537,0.5235,0.5112,0.4933,0.475,0.4641,0.4506,0.4496,0.4273,0.423,0.4132],"paid_social":[1.0,0.8961,0.8023,0.7268,0.6783,0.6372,0.5854,0.5601,0.5464,0.5414,0.5033,0.491,0.4631,0.4333,0.4336,0.4133,0.3858,0.3552,0.3441,0.3292,0.3059,0.2797,0.2684,0.2471,0.2311]},"attribution":{"first_touch":{"paid_search":1950.0,"paid_social":656.0,"display":230.0,"affiliate":465.0},"last_touch":{"paid_search":1292.0,"paid_social":513.0,"display":191.0,"affiliate":339.0},"linear":{"paid_search":1589.3833,"paid_social":579.9167,"display":209.4167,"affiliate":397.7833},"position_based":{"paid_search":1603.7,"paid_social":582.0,"display":209.9,"affiliate":399.7}},"experiments":[{"id":"EXP-001","name":"Paid social lookalike holdout","channel":"paid_social","rel_lift":0.2147,"lo":0.0911,"hi":0.3524,"p":0.0004,"significant":true,"attributed_roas":1.2154,"incremental_roas":0.2174,"n":60000,"required_n":18596,"verdict":"Positive incremental effect detected (CI excludes zero).","type":"User-level holdout"},{"id":"EXP-002","name":"Display prospecting holdout","channel":"display","rel_lift":-0.0088,"lo":-0.1116,"hi":0.106,"p":0.8749,"significant":false,"attributed_roas":1.3834,"incremental_roas":-0.013,"n":80000,"required_n":12781746,"verdict":"Inconclusive: no significant effect. The data cannot distinguish zero from effects up to about +10% relative.","type":"User-level holdout"},{"id":"EXP-003","name":"Affiliate coupon pilot (small)","channel":"affiliate","rel_lift":0.2751,"lo":-0.0459,"hi":0.704,"p":0.0996,"significant":false,"attributed_roas":1.7306,"incremental_roas":0.439,"n":6000,"required_n":8681,"verdict":"Inconclusive: no significant effect. The data cannot distinguish zero from effects up to about +61% relative.","type":"User-level holdout"},{"id":"GEO-001","name":"Paid search non-brand geo holdout","channel":"paid_search","rel_lift":0.1245,"lo":0.058,"hi":0.191,"p":0.0006,"significant":true,"attributed_roas":null,"incremental_roas":0.8491,"n":40,"required_n":null,"verdict":"Positive incremental effect (cluster-robust and randomisation tests agree).","type":"Geo holdout (diff-in-diff)","placebo_p":0.4922,"parallel_ok":true}],"geo_weekly":{"weeks":["2025-05-12","2025-05-19","2025-05-26","2025-06-02","2025-06-09","2025-06-16","2025-06-23","2025-06-30","2025-07-07","2025-07-14","2025-07-21","2025-07-28"],"control":[0.9303,1.0064,0.944,0.9578,1.0363,0.9852,1.0875,1.0525,1.1074,1.1037,1.0712,1.0575],"treatment":[0.9506,0.9725,1.008,0.9746,0.9829,1.034,1.009,1.0685,1.1822,1.1812,1.2406,1.2135],"test_start":"2025-07-07"},"lifecycle":[{"metric":"Paid conversion (30d)","horizon":30,"rel":0.085,"lo":0.0491,"hi":0.1221,"p":0.0,"control":0.2994,"treatment":0.3249,"kind":"rate"},{"metric":"Still paying (90d), per assigned user","horizon":90,"rel":0.0704,"lo":0.0323,"hi":0.1098,"p":0.0002,"control":0.2717,"treatment":0.2908,"kind":"rate"},{"metric":"Still paying (180d), per assigned user","horizon":180,"rel":0.0471,"lo":0.0057,"hi":0.0902,"p":0.0253,"control":0.234,"treatment":0.2451,"kind":"rate"},{"metric":"Revenue per assigned user (30d)","horizon":30,"rel":0.0802,"lo":0.0313,"hi":0.1291,"p":0.0013,"control":34.6541,"treatment":37.4328,"kind":"per_user_usd"},{"metric":"Revenue per assigned user (90d)","horizon":90,"rel":0.0733,"lo":0.0237,"hi":0.1229,"p":0.0038,"control":99.0543,"treatment":106.3139,"kind":"per_user_usd"},{"metric":"Revenue per assigned user (180d)","horizon":180,"rel":0.0539,"lo":0.0033,"hi":0.1045,"p":0.037,"control":185.5814,"treatment":195.5837,"kind":"per_user_usd"}],"lifecycle_value":[{"horizon":30,"net_per_user":1.8729,"lo":0.5179,"hi":3.2279,"total":27947.7357,"roi":6.3512},{"horizon":90,"net_per_user":5.4577,"lo":1.5258,"hi":9.3896,"total":81440.0706,"roi":16.5935},{"horizon":180,"net_per_user":7.6518,"lo":0.1341,"hi":15.1695,"total":114180.2641,"roi":22.8623}],"mmm":{"channels":[{"id":"paid_search","roi":0.4102,"lo":0.1644,"hi":0.6027,"share":0.2661,"share_lo":0.1067,"share_hi":0.3911,"decay":0.6,"lag":2,"marginal":0.3554,"weekly_spend":4990.3579},{"id":"paid_social","roi":0.1644,"lo":0.0,"hi":0.332,"share":0.0859,"share_lo":0.0,"share_hi":0.1734,"decay":0.2,"lag":2,"marginal":0.1481,"weekly_spend":3606.5392},{"id":"display","roi":0.4711,"lo":0.0,"hi":1.1371,"share":0.1171,"share_lo":0.0,"share_hi":0.2827,"decay":0.6,"lag":0,"marginal":0.4127,"weekly_spend":1807.4429},{"id":"affiliate","roi":0.0,"lo":0.0,"hi":1.757,"share":0.0,"share_lo":0.0,"share_hi":0.3423,"decay":0.8,"lag":0,"marginal":0.0,"weekly_spend":1451.0415}],"calibration":[{"id":"paid_social","exp":"EXP-001","exp_roas":0.2174,"mmm":0.1644,"lo":0.0,"hi":0.332,"inside":true,"exp_sig":true,"reading":"Consistent: experiment lies inside the MMM interval."},{"id":"display","exp":"EXP-002","exp_roas":-0.013,"mmm":0.4711,"lo":0.0,"hi":1.1371,"inside":false,"exp_sig":false,"reading":"MMM over-states this channel versus the experiment. (experiment itself not significant - treat with caution)"},{"id":"affiliate","exp":"EXP-003","exp_roas":0.439,"mmm":0.0,"lo":0.0,"hi":1.757,"inside":true,"exp_sig":false,"reading":"Consistent: experiment lies inside the MMM interval. (experiment itself not significant - treat with caution)"},{"id":"paid_search","exp":"GEO-001","exp_roas":0.8491,"mmm":0.4102,"lo":0.1644,"hi":0.6027,"inside":false,"exp_sig":true,"reading":"MMM under-states this channel versus the experiment."}],"models":[{"model":"controls_only (no media)","r2":-0.0403,"mape":0.191,"rmse":1731.9831,"chosen":false},{"model":"baseline_ols (raw spend)","r2":-0.0536,"mape":0.2003,"rmse":1743.035,"chosen":false},{"model":"improved (adstock + saturation)","r2":0.1981,"mape":0.1731,"rmse":1520.57,"chosen":true}],"diagnostics":[{"check":"Durbin-Watson","value":1.3911,"status":"warn","meaning":"~2 = no first-order autocorrelation; <1.5 positive autocorrelation (omitted dynamics?)."},{"check":"Ljung-Box p (8 lags)","value":0.0002,"status":"warn","meaning":"p<0.05 = residuals still autocorrelated."},{"check":"Breusch-Pagan p","value":0.0183,"status":"warn","meaning":"p<0.05 = non-constant residual variance."},{"check":"Jarque-Bera p (normality)","value":0.7309,"status":"ok","meaning":"p<0.05 = residuals not normal (matters for intervals)."},{"check":"Max VIF (multicollinearity)","value":2.232,"status":"ok","meaning":"Highest: spend_paid_search. >5 means estimates of that column are unstable."},{"check":"Weeks per parameter","value":13.8182,"status":"ok","meaning":"Rule of thumb >= 10 observations per parameter."}],"scenarios":[{"name":"current (last-52-week average)","budget":11855.3815,"mrr":3534.4358,"delta":0.0,"lo":0.0,"hi":0.0,"prob":0.0,"spend":{"paid_search":4990.3579,"paid_social":3606.5392,"display":1807.4429,"affiliate":1451.0415}},{"name":"optimised, same budget","budget":11855.3815,"mrr":4147.6184,"delta":613.1826,"lo":-161.9677,"hi":1036.8502,"prob":0.9067,"spend":{"paid_search":6615.4268,"paid_social":1803.2696,"display":2711.1643,"affiliate":725.5208}},{"name":"optimised, budget +10%","budget":13040.9197,"mrr":4530.3036,"delta":995.8679,"lo":49.712,"hi":1571.6686,"prob":0.9533,"spend":{"paid_search":7529.8485,"paid_social":1803.2696,"display":2982.2808,"affiliate":725.5208}},{"name":"optimised, budget -20%","budget":9484.3052,"mrr":3449.2315,"delta":-85.2043,"lo":-990.3318,"hi":376.2639,"prob":0.29,"spend":{"paid_search":4768.0982,"paid_social":1442.6157,"display":2693.1748,"affiliate":580.4166}},{"name":"equal split, same budget","budget":10815.4174,"mrr":3020.0666,"delta":-514.3692,"lo":-1054.0291,"hi":311.5689,"prob":0.1733,"spend":{"paid_search":2963.8454,"paid_social":2963.8454,"display":2711.1643,"affiliate":2176.5623}}],"response":{"affiliate":{"x":[0.0,87.2033,174.4067,261.61,348.8133,436.0167,523.22,610.4233,697.6267,784.83,872.0333,959.2367,1046.44,1133.6433,1220.8467,1308.05,1395.2533,1482.4567,1569.66,1656.8633,1744.0667,1831.27,1918.4733,2005.6767,2092.88,2180.0833,2267.2867,2354.49,2441.6933,2528.8967,2616.1,2703.3033,2790.5067,2877.71,2964.9133,3052.1167,3139.32,3226.5233,3313.7267,3400.93],"y":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]},"display":{"x":[0.0,100.3287,200.6574,300.9862,401.3149,501.6436,601.9723,702.301,802.6297,902.9585,1003.2872,1103.6159,1203.9446,1304.2733,1404.6021,1504.9308,1605.2595,1705.5882,1805.9169,1906.2456,2006.5744,2106.9031,2207.2318,2307.5605,2407.8892,2508.2179,2608.5467,2708.8754,2809.2041,2909.5328,3009.8615,3110.1903,3210.519,3310.8477,3411.1764,3511.5051,3611.8338,3712.1626,3812.4913,3912.82],"y":[0.0,54.2662,107.7005,160.3158,212.1246,263.1393,313.372,362.8348,411.5393,459.4973,506.7203,553.2193,599.0056,644.0902,688.4836,732.1966,775.2395,817.6227,859.3562,900.45,940.9139,980.7576,1019.9905,1058.6221,1096.6615,1134.1179,1171.0001,1207.317,1243.0772,1278.2893,1312.9616,1347.1025,1380.72,1413.8223,1446.4172,1478.5124,1510.1157,1541.2345,1571.8764,1602.0486]},"paid_search":{"x":[0.0,400.599,801.1979,1201.7969,1602.3959,2002.9949,2403.5938,2804.1928,3204.7918,3605.3908,4005.9897,4406.5887,4807.1877,5207.7867,5608.3856,6008.9846,6409.5836,6810.1826,7210.7815,7611.3805,8011.9795,8412.5785,8813.1774,9213.7764,9614.3754,10014.9744,10415.5733,10816.1723,11216.7713,11617.3703,12017.9692,12418.5682,12819.1672,13219.7662,13620.3651,14020.9641,14421.5631,14822.1621,15222.761,15623.36],"y":[0.0,188.9683,373.5133,553.7385,729.745,901.6316,1069.4947,1233.4285,1393.5249,1549.8738,1702.563,1851.678,1997.3026,2139.5184,2278.4052,2414.041,2546.5019,2675.8622,2802.1944,2925.5694,3046.0565,3163.7233,3278.6357,3390.8583,3500.454,3607.4843,3712.0093,3814.0875,3913.7764,4011.1317,4106.2081,4199.0591,4289.7365,4378.2915,4464.7735,4549.2312,4631.7119,4712.2619,4790.9264,4867.7496]},"paid_social":{"x":[0.0,281.6987,563.3974,845.0962,1126.7949,1408.4936,1690.1923,1971.891,2253.5897,2535.2885,2816.9872,3098.6859,3380.3846,3662.0833,3943.7821,4225.4808,4507.1795,4788.8782,5070.5769,5352.2756,5633.9744,5915.6731,6197.3718,6479.0705,6760.7692,7042.4679,7324.1667,7605.8654,7887.5641,8169.2628,8450.9615,8732.6603,9014.359,9296.0577,9577.7564,9859.4551,10141.1538,10422.8526,10704.5513,10986.25],"y":[0.0,53.8421,106.5791,158.2336,208.8278,258.3835,306.9219,354.4641,401.0304,446.6409,491.3151,535.0724,577.9315,619.9108,661.0285,701.3021,740.7491,779.3864,817.2306,854.298,890.6046,926.1659,960.9972,995.1136,1028.5297,1061.2599,1093.3183,1124.7187,1155.4745,1185.599,1215.1051,1244.0056,1272.3129,1300.0391,1327.1962,1353.7959,1379.8496,1405.3685,1430.3636,1454.8456]}},"fit":{"weeks":["2023-01-30","2023-02-06","2023-02-13","2023-02-20","2023-02-27","2023-03-06","2023-03-13","2023-03-20","2023-03-27","2023-04-03","2023-04-10","2023-04-17","2023-04-24","2023-05-01","2023-05-08","2023-05-15","2023-05-22","2023-05-29","2023-06-05","2023-06-12","2023-06-19","2023-06-26","2023-07-03","2023-07-10","2023-07-17","2023-07-24","2023-07-31","2023-08-07","2023-08-14","2023-08-21","2023-08-28","2023-09-04","2023-09-11","2023-09-18","2023-09-25","2023-10-02","2023-10-09","2023-10-16","2023-10-23","2023-10-30","2023-11-06","2023-11-13","2023-11-20","2023-11-27","2023-12-04","2023-12-11","2023-12-18","2023-12-25","2024-01-01","2024-01-08","2024-01-15","2024-01-22","2024-01-29","2024-02-05","2024-02-12","2024-02-19","2024-02-26","2024-03-04","2024-03-11","2024-03-18","2024-03-25","2024-04-01","2024-04-08","2024-04-15","2024-04-22","2024-04-29","2024-05-06","2024-05-13","2024-05-20","2024-05-27","2024-06-03","2024-06-10","2024-06-17","2024-06-24","2024-07-01","2024-07-08","2024-07-15","2024-07-22","2024-07-29","2024-08-05","2024-08-12","2024-08-19","2024-08-26","2024-09-02","2024-09-09","2024-09-16","2024-09-23","2024-09-30","2024-10-07","2024-10-14","2024-10-21","2024-10-28","2024-11-04","2024-11-11","2024-11-18","2024-11-25","2024-12-02","2024-12-09","2024-12-16","2024-12-23","2024-12-30","2025-01-06","2025-01-13","2025-01-20","2025-01-27","2025-02-03","2025-02-10","2025-02-17","2025-02-24","2025-03-03","2025-03-10","2025-03-17","2025-03-24","2025-03-31","2025-04-07","2025-04-14","2025-04-21","2025-04-28","2025-05-05","2025-05-12","2025-05-19","2025-05-26","2025-06-02","2025-06-09","2025-06-16","2025-06-23","2025-06-30","2025-07-07","2025-07-14","2025-07-21","2025-07-28","2025-08-04","2025-08-11","2025-08-18","2025-08-25","2025-09-01","2025-09-08","2025-09-15","2025-09-22","2025-09-29","2025-10-06","2025-10-13","2025-10-20","2025-10-27","2025-11-03","2025-11-10","2025-11-17","2025-11-24","2025-12-01","2025-12-08","2025-12-15","2025-12-22"],"actual":[3370.5,5382.0,6010.0,6761.0,4021.0,5512.5,6160.1,6650.9,5484.55,5682.15,5113.25,5374.0,7099.5,5254.0,4017.5,5062.5,5794.5,7816.75,5293.25,5058.0,5205.0,5732.75,4899.25,2896.0,6380.0,5639.75,5938.75,6120.25,5032.25,8500.75,4942.0,3539.0,3798.2,6526.8,7188.35,7374.3,5623.75,4542.5,6475.25,6225.5,5843.5,6546.75,5841.0,4428.9,6251.1,6432.85,4292.5,4284.75,2372.0,4639.5,6548.0,5570.75,7122.75,5530.75,8568.0,5523.75,7104.75,5764.25,5966.0,7331.9,5919.15,6308.9,5212.0,5923.0,7597.5,7139.75,8826.75,8876.75,8607.25,5394.0,6200.25,5881.0,8098.75,7460.75,7571.0,5549.75,6660.25,6837.5,5305.0,4845.75,5499.75,5932.0,5003.75,3851.75,5042.4,8417.8,5791.9,6485.5,7128.0,7131.0,7004.0,5358.5,5592.75,6328.5,6215.0,6909.15,6654.95,6160.3,4609.75,5978.5,4122.75,4899.75,6995.5,9229.0,9912.0,7424.5,8810.75,6922.0,7269.0,6872.0,7509.5,9048.0,8733.4,9440.05,6445.55,7551.75,9915.0,10831.75,9157.25,6850.5,7009.75,7699.25,6539.5,6141.5,9727.5,9870.5,8938.5,7455.5,9321.0,7148.75,4353.0,7429.75,7556.75,6599.0,6505.75,5598.75,8955.15,9295.1,10852.6,10076.5,9293.85,7660.0,8496.0,6840.75,7940.0,9193.75,8360.0,9941.7,9032.7,10614.2,6597.6,4267.75],"fitted":[2886.8301,3121.2825,4340.2078,4944.3236,5152.2903,5388.4385,6319.6571,6186.3219,5632.5048,6205.4841,6308.3506,6261.719,6297.8571,6173.1435,5967.0998,6477.8674,5677.9387,5700.622,5231.6216,5060.531,5016.9342,5729.5622,5641.518,5015.8544,4970.1012,4900.1,4996.9836,4843.0022,5273.7382,6110.9141,5808.5386,5557.1454,5340.7472,5610.1475,6068.7047,5989.4895,5820.542,5247.8042,5313.6605,5455.0025,6049.998,5838.1998,5714.1736,5568.1397,6152.9495,5918.9868,5668.7444,5940.3127,5520.8527,5673.2699,5949.3117,5982.2383,5962.0266,6026.0769,6142.8869,6094.9261,6767.4525,6328.3988,7005.9001,6906.9746,6557.51,6734.0518,7118.9007,7067.1003,7182.293,7085.6658,7723.7718,7567.0604,7169.2141,6063.9969,6233.4595,6122.6345,6334.9571,6198.5864,6044.0873,6362.1256,6593.1822,6683.3766,7236.7957,6335.0997,6178.3903,6059.1806,6015.0243,6101.9072,6514.8483,6555.1766,6144.0564,6140.3327,6349.4966,6783.6979,6781.1473,6720.9688,6575.8188,6352.7792,6261.6491,6249.7436,5780.9654,5445.5108,6090.7844,6375.9996,6708.7477,6951.5919,7071.1771,7040.9436,6914.1272,6863.1378,6995.6453,7333.4933,6929.5024,7748.7879,8794.6825,8719.7814,8301.9884,8179.7815,8157.5089,8191.6846,8863.4066,8900.5293,8422.1211,7763.4797,7838.2797,7666.0784,7993.5814,8218.5608,8196.5806,8238.5205,8435.4862,7903.7725,7489.5732,6455.0831,6480.8397,7755.5367,7578.911,6901.5145,6804.286,7159.217,8174.1671,8933.7748,9857.1751,9622.3549,8749.4011,8401.0706,7694.7968,7484.8185,7696.5148,7926.069,7783.3187,8185.7539,8093.6826,7872.7825,8407.4552,8025.9766],"test_start":"2025-06-30"}},"recommendations":[{"id":"affiliate","action":"Reduce / fix","rule":"1 <= ratio < 1.5: barely covers its cost over its lifetime","evidence":"projected 36-month gross-profit LTV $655 vs fully loaded CAC $576 (ratio 1.1); payback 22 months","caveats":"experiment EXP-003: no significant lift (rel. lift 27.5%, 95% CI -5% to 70%); attributed ROAS 1.73 but incremental ROAS 0.44; MMM contribution share 0.0% (90% interval 0.0% to 34.2%); MMM cannot distinguish this channel's effect from zero"},{"id":"display","action":"Cut or re-test","rule":"ratio < 1: loses money on a lifetime basis even before overhead risk","evidence":"projected 36-month gross-profit LTV $801 vs fully loaded CAC $1,509 (ratio 0.5); payback not reached in observed data","caveats":"experiment EXP-002: no significant lift (rel. lift -0.9%, 95% CI -11% to 11%); attributed ROAS 1.38 but incremental ROAS -0.01; MMM contribution share 11.7% (90% interval 0.0% to 28.3%)"},{"id":"paid_search","action":"Scale candidate (test first)","rule":"ratio >= 3.0 and payback <= 12 months","evidence":"projected 36-month gross-profit LTV $1,949 vs fully loaded CAC $479 (ratio 4.1); payback 6 months","caveats":"MMM contribution share 26.6% (90% interval 10.7% to 39.1%)"},{"id":"paid_social","action":"Reduce / fix","rule":"1 <= ratio < 1.5: barely covers its cost over its lifetime","evidence":"projected 36-month gross-profit LTV $1,149 vs fully loaded CAC $1,116 (ratio 1.0); payback 31 months","caveats":"experiment EXP-001: significant lift (rel. 21.5%, 95% CI 9% to 35%); incremental ROAS on first payment 0.22 vs attributed 1.22; MMM contribution share 8.6% (90% interval 0.0% to 17.3%)"}]};
+const $ = (s) => document.querySelector(s);
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const L = D.labels;
+const SER = {paid_search:'--s-search', paid_social:'--s-social', display:'--s-display', affiliate:'--s-affiliate', organic_owned:'--s-organic'};
+const col = (id) => css(SER[id] || '--s-organic');
+const lab = (id) => id === 'organic_owned' ? 'Organic & owned' : (L[id] || id);
+const usd = (v, d=0) => v == null ? '–' : (v < 0 ? '−$' : '$') + Math.abs(Number(v)).toLocaleString('en-US', {maximumFractionDigits:d, minimumFractionDigits:d});
+const usdk = (v) => v == null ? '–' : (Math.abs(v) >= 1e6 ? '$' + (v/1e6).toFixed(2) + 'M' : Math.abs(v) >= 1e3 ? '$' + (v/1e3).toFixed(0) + 'k' : '$' + Math.round(v));
+const int = (v) => v == null ? '–' : Math.round(v).toLocaleString('en-US');
+const pct = (v, d=0) => v == null ? '–' : (v*100).toFixed(d) + '%';
+const spct = (v, d=1) => v == null ? '–' : (v >= 0 ? '+' : '−') + Math.abs(v*100).toFixed(d) + '%';
+const x2 = (v, d=1) => v == null ? '–' : Number(v).toFixed(d) + '×';
+const cap = (t) => t ? t[0].toUpperCase() + t.slice(1) : t;
+const ch = (id) => D.channels.find(c => c.id === id);
+const exp = (id) => D.experiments.find(e => e.id === id);
+
+const ICON = {
+  good:'<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6.5l2.2 2.2L9.5 3.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  warn:'<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2.2v4.6M6 9.2v.3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  bad:'<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3l6 6M9 3l-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+};
+const pill = (kind, text) => `<span class="pill ${kind}">${ICON[kind] || ''}${text}</span>`;
+const ACTION = {
+  paid_search:['good','Scale, test first'], paid_social:['warn','Reduce & fix'],
+  display:['bad','Cut or re-test'], affiliate:['warn','Reduce & fix']
+};
+
+/* ---------- static content computed from data ---------- */
+function renderText(){
+  const k = D.kpis, ps = ch('paid_search'), dp = ch('display'), so = ch('paid_social'), af = ch('affiliate');
+  const e1 = exp('EXP-001'), e2 = exp('EXP-002'), e3 = exp('EXP-003'), g1 = exp('GEO-001');
+  const opt = D.mmm.scenarios.find(s => s.name.startsWith('optimised, same'));
+  const lifeConv = D.lifecycle.find(r => r.horizon === 30 && r.kind === 'rate');
+  const life180 = D.lifecycle.find(r => r.horizon === 180 && r.kind === 'per_user_usd');
+  const life30r = D.lifecycle.find(r => r.horizon === 30 && r.kind === 'per_user_usd');
+  const lv180 = D.lifecycle_value.find(r => r.horizon === 180);
+  const fs = D.funnel.stages, fa = D.funnel.all;
+  const stepRates = fs.slice(1).map((s, i) => fa[i+1] / fa[i]);
+  const worst = stepRates.indexOf(Math.min(...stepRates));
+  const stageName = {visitors:'visit', pricing_viewers:'pricing view', signup_starters:'signup start', signups:'signup', trials:'trial', paying_customers:'first payment'};
+
+  $('#verdict').innerHTML = `<b>Short answer:</b> move budget into paid search, which pays back in ${ps.payback_months} months at ${x2(ps.ltv_cac)} LTV:CAC and showed a real lift in a geo test. Stop scaling display: its attributed ROAS looks fine, but its holdout showed no lift and each customer loses money. Paid social does cause sales, but too few to cover its cost.`;
+
+  $('#kpis').innerHTML = [
+    ['Paid media spend', usdk(k.paid_spend), `${D.meta.data_start.slice(0,7)} to ${D.meta.data_end.slice(0,7)}`],
+    ['Customers from paid', int(k.paid_customers), `of ${int(k.total_customers)} paying customers`],
+    ['Blended paid CAC', usd(k.paid_cac), 'media spend ÷ new paying customers'],
+    ['Paid ROAS, first 12 months', x2(k.paid_roas_m12, 2), 'net revenue ÷ spend, mature cohorts'],
+    ['Spend in loss-making channels', pct(k.loss_making_spend_share), 'display + paid social, LTV:CAC ≈ 1 or less', 'alert']
+  ].map(([l, v, s, c]) => `<div class="kpi ${c||''}"><div class="eyebrow">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+
+  const qa = [
+    ['Which channels acquire customers efficiently?', `Paid search: ${pct(k.paid_share_of_customers_search)} of paid customers from ${pct(k.paid_share_of_spend_search)} of paid spend. Display costs ${x2(dp.cac/ps.cac)} as much per customer.`, `${usd(ps.cac)} vs ${usd(dp.cac)}`, 'CAC, paid search vs display', '#economics'],
+    ['Is the revenue incremental, or just credited?', `Display claims ${x2(e2.attributed_roas,2)} ROAS by attribution, but its holdout found ${spct(e2.rel_lift)} lift (95% CI ${spct(e2.lo,0)} to ${spct(e2.hi,0)}). Paid social's lift is real (${spct(e1.rel_lift,0)}) but small in dollars.`, `${x2(e2.attributed_roas,2)} → ${x2(e2.incremental_roas,2)}`, 'display ROAS, attributed → incremental', '#incrementality'],
+    ['Where does the funnel leak?', `Only ${pct(stepRates[worst],1)} of people who start the signup form finish it, the weakest step. Trial-to-paid is ${pct(stepRates[4])}.`, pct(stepRates[worst],1), `${stageName[fs[worst]]} → ${stageName[fs[worst+1]]}`, '#funnel'],
+    ['Which channels bring customers who stay?', `Organic, referral and email customers churn about 2.5–3.2% a month. Affiliate and display customers churn ${pct(af.monthly_churn,1)} and ${pct(dp.monthly_churn,1)}: discount seekers leave.`, `${pct(af.monthly_churn,1)} vs ${pct(ch('referral').monthly_churn,1)}`, 'monthly churn, affiliate vs referral', '#funnel'],
+    ['How should budget be reallocated?', `The MMM's best mix at the same budget adds ${usd(opt.delta)} new MRR a week (90% interval ${usd(opt.lo)} to +${usd(opt.hi)}). I'd take the search half of that move and test it with a geo holdout.`, `+${usd(opt.delta)}/wk`, `new MRR, ${pct(opt.prob)} of bootstrap fits beat today`, '#mmm'],
+    ['Does lifecycle marketing pay off long-term?', `The onboarding emails lifted 30-day paid conversion ${spct(lifeConv.rel)}. The revenue lift fades from ${spct(life30r.rel)} at 30 days to ${spct(life180.rel)} at 180, still worth it at near-zero cost.`, usdk(lv180.total), 'net value at 180 days', '#incrementality'],
+  ];
+  $('#qa').innerHTML = qa.map(([q, a, s, sl, href], i) => `<a class="q" href="${href}"><span class="qn">Q${i+1}</span><h3>${q}</h3><p>${a}</p><div class="stat">${s}<small>${sl}</small></div></a>`).join('');
+
+  $('#t-ltvcac').innerHTML = `<b>Paid search returns ${x2(ps.ltv_cac)}</b> its fully loaded cost and pays back in ${ps.payback_months} months. Display returns ${x2(dp.ltv_cac)} and never pays back in the observed data.`;
+  $('#t-cac').innerHTML = `Overhead adds about 40% to every channel. Display's <b>${usd(dp.cac_loaded)}</b> loaded CAC is more than its customers' projected 36-month gross profit (${usd(dp.ltv_gp_36m)}).`;
+  const by = D.funnel.by;
+  $('#t-funnel').innerHTML = `Display visitors reach pricing at a similar rate but finish signup far less often: <b>${pct(by.display[5]/by.display[0],2)}</b> of display visitors pay, vs <b>${pct(by.paid_search[5]/by.paid_search[0],2)}</b> from paid search.`;
+  const r12 = (g) => D.retention[g][12];
+  $('#t-ret').innerHTML = `At 12 months, <b>${pct(r12('organic_owned'))}</b> of organic and owned customers still pay, ${pct(r12('paid_search'))} from paid search, and only <b>${pct(r12('affiliate'))}</b> from affiliate coupon sites.`;
+  $('#t-roas').innerHTML = `Attribution over-credits every tested channel. On first-payment revenue during the tests, <b>display returned nothing incremental</b>, and paid social returned ${usd(e1.incremental_roas,2)} per $1 against the ${usd(e1.attributed_roas,2)} attribution claims.`;
+  $('#t-lift').innerHTML = `Two tests are significant: paid social and the paid search geo test. The affiliate pilot was too small: detecting its observed lift needs about <b>${int(e3.required_n)} users per arm</b>, vs ${int(e3.n/2)} tested.`;
+  $('#t-geo').innerHTML = `Treatment regions rose about <b>${spct(g1.rel_lift,0)}</b> once search switched on (95% CI ${spct(g1.lo,0)} to ${spct(g1.hi,0)}). Pre-period trends were parallel (placebo p = ${g1.placebo_p.toFixed(2)}), so the gap is credible.`;
+  $('#t-life').innerHTML = `Every horizon is significant, but the lift shrinks: incremental converters retain worse than average. Net value is still <b>${usd(lv180.net_per_user,2)} per trial user</b> at 180 days against a $0.35 send cost.`;
+  const a = D.attribution, pf = a.first_touch.paid_search, pl = a.last_touch.paid_search;
+  $('#t-att').innerHTML = `Switching from first-touch to last-touch removes <b>${pct(1-pl/pf)}</b> of paid search's customers, because many paid-search visitors come back via direct or email to buy. Picking a model is a business decision, so the BI layer exposes all four.`;
+  const chosen = D.mmm.models.find(m => m.chosen), base = D.mmm.models.find(m => m.model.startsWith('baseline'));
+  $('#t-fit').innerHTML = `The adstock + saturation model beats a no-media baseline on held-out weeks (test R² <b>${chosen.r2.toFixed(2)}</b> vs ${base.r2.toFixed(2)}), but that is modest. With 156 weekly points the model is best used to rank channels, not to set exact budgets.`;
+  $('#t-cal').innerHTML = `The MMM <b>under-states paid search</b> by about half compared with the geo test, and <b>over-states display</b>, whose holdout found nothing. Paid social's experiment sits inside the MMM interval, so for that channel the two methods agree.`;
+  $('#t-scen').innerHTML = `Cutting the budget 20% loses little; an equal split is clearly worse. The optimiser also wants more display, which the experiments contradict, so <b>only the paid-search shift is recommended</b>.`;
+}
+
+/* ---------- tables ---------- */
+function renderTables(){
+  const rows = D.channels.map(c => {
+    const act = ACTION[c.id];
+    return `<tr class="${c.paid ? '' : 'organic'}"><td><span class="sw" style="background:${c.paid ? col(c.id) : 'var(--line)'}"></span>${c.label}</td>
+      <td class="num">${c.paid ? usdk(c.spend) : '–'}</td><td class="num">${int(c.customers)}</td>
+      <td class="num">${c.paid ? usd(c.cac) : '–'}</td><td class="num">${c.paid ? usd(c.cac_loaded) : '–'}</td>
+      <td class="num">${usd(c.rev_per_customer_12m)}</td><td class="num">${pct(c.monthly_churn,1)}</td>
+      <td class="num">${usd(c.ltv_gp_36m)}</td><td class="num">${c.paid ? x2(c.ltv_cac) : '–'}</td>
+      <td class="num">${c.paid ? (c.payback_months ? c.payback_months + ' mo' : 'not reached') : '–'}</td>
+      <td>${act ? pill(act[0], act[1]) : pill('neutral', 'Organic / owned')}</td></tr>`;
+  }).join('');
+  $('#tbl-econ').innerHTML = `<thead><tr><th>Channel</th><th>Spend</th><th>Customers</th><th>CAC</th><th>Loaded CAC</th><th>12-mo revenue per cust.</th><th>Monthly churn</th><th>36-mo GP LTV</th><th>LTV : CAC</th><th>Payback</th><th>Call</th></tr></thead><tbody>${rows}</tbody>`;
+
+  const MN = {'controls_only (no media)':'Controls only (no media)', 'baseline_ols (raw spend)':'Baseline OLS, raw spend', 'improved (adstock + saturation)':'Adstock + saturation'};
+  $('#tbl-models').innerHTML = `<thead><tr><th>MMM candidate</th><th>Test R²</th><th>Test MAPE</th><th>Used</th></tr></thead><tbody>` +
+    D.mmm.models.map(m => `<tr><td>${MN[m.model] || m.model}</td><td class="num">${m.r2.toFixed(2)}</td><td class="num">${pct(m.mape,1)}</td><td>${m.chosen ? pill('good','Chosen') : ''}</td></tr>`).join('') + '</tbody>';
+  $('#tbl-diag').innerHTML = `<thead><tr><th>Model diagnostic</th><th>Value</th><th>Status</th></tr></thead><tbody>` +
+    D.mmm.diagnostics.map(d => `<tr><td title="${d.meaning}">${d.check}</td><td class="num">${Number(d.value).toFixed(d.value < 0.01 ? 4 : 2)}</td><td>${d.status === 'ok' ? pill('good','OK') : pill('warn','Flag')}</td></tr>`).join('') + '</tbody>';
+
+  const SK = [
+    ['Paid search, paid social and organic performance analysis', 'Channel and campaign marts, CAC (media and fully loaded), ROAS, funnel and cohort retention; brand-search cannibalisation in the weekly brief.'],
+    ['Experiments and geo-tests, with stated uncertainty', '3 user-level holdouts (SRM check, CIs, power, CACE) and a 40-region geo test (diff-in-diff, randomisation inference, placebo).'],
+    ['Unified marketing data products with Data Engineering', 'dbt staging → intermediate → marts → reporting star schema, 44 models and 135 tests, portable between DuckDB and BigQuery.'],
+    ['Combining attribution with experimental evidence', '4 attribution models in SQL, checked against a pandas reference, then reconciled with experiments and an MMM calibration table.'],
+    ['Narratives and visualisation for stakeholders', 'This page, a Looker Studio report, a Power BI spec and a generated business report, each labelled FACT, ESTIMATE or RECOMMENDATION.'],
+    ['AI tools to automate recurring reports, with accuracy checks', 'Deterministic weekly insight brief plus a guard-railed LLM prompt that may only use numbers the pipeline computed.'],
+    ['Documented definitions, methods and limitations; self-service analytics', 'Data dictionary, metric definitions, Looker calculated fields, analytics standards and a tracking plan for event streaming (RudderStack-style).'],
+    ['Marketing Mix Modelling (nice to have)', 'Adstock, lag and saturation, out-of-time test, bootstrap intervals, budget scenarios and calibration against experiments.'],
+  ];
+  $('#tbl-skills').innerHTML = '<thead><tr><th>The job asks for</th><th>Where this project shows it</th></tr></thead><tbody>' + SK.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('') + '</tbody>';
+
+  $('#pipe').innerHTML = [
+    ['Generate', '18 seeded tables, 156 weeks, byte-reproducible'],
+    ['Load', 'CSV → DuckDB locally, or BigQuery'],
+    ['Model', `dbt: <span class="num">${D.meta.dbt_models}</span> models, <span class="num">${D.meta.dbt_tests_passed}</span>/${D.meta.dbt_tests_passed + D.meta.dbt_tests_failed} tests pass`],
+    ['Analyse', 'Attribution, holdouts, geo-lift, lifecycle, MMM in Python'],
+    ['Publish', '27 BI tables, CSV exports with a catalog'],
+    ['Present', 'Looker Studio, this page, business report'],
+  ].map(([t, d]) => `<div><b>${t}</b>${d}</div>`).join('');
+
+  $('#limits').innerHTML = [
+    'All company, marketing and experiment data are synthetic, generated with a fixed seed. Results show the methods working, not real market performance.',
+    'Because the generator has a known ground truth, the tests check that each method recovers it. Real data would not offer that check.',
+    'Paid media enters journeys only as a first touch in the simulation, which flatters first-touch attribution.',
+    'The MMM has about 150 weekly points: residuals are autocorrelated and some channel intervals include zero (see diagnostics).',
+    'The 36-month LTV is a projection from months 3–12 churn; recent cohorts are right-censored.',
+  ].map(t => `<li>${t}</li>`).join('');
+
+  $('#foot-meta').textContent = `Data ${D.meta.data_start} to ${D.meta.data_end} · pipeline run ${D.meta.built} UTC · seed ${D.meta.seed}`;
+
+  const ps = ch('paid_search');
+  $('#recs').innerHTML = D.recommendations.slice().sort((a, b) => D.paid.indexOf(a.id) - D.paid.indexOf(b.id)).map(r => {
+    const act = ACTION[r.id];
+    return `<article class="rec"><div class="top"><h3><span class="sw" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${col(r.id)}"></span>${lab(r.id)}</h3>${pill(act[0], act[1])}</div>
+      <dl><div><dt>Evidence</dt><dd>${cap(r.evidence)}</dd></div><div><dt>Also considered</dt><dd>${cap(r.caveats)}</dd></div></dl></article>`;
+  }).join('');
+  const e3 = exp('EXP-003');
+  $('#plan').innerHTML = [
+    ['Scale non-brand paid search +10% inside a new geo holdout', 'Confirms the marginal return at higher spend before rolling out; the response curve says returns are still well short of saturation.'],
+    ['Pause display prospecting and re-test with enough power', 'Design the re-test to detect a 5% lift. Stop the spend meanwhile: every customer it buys loses money.'],
+    ['Rebuild paid social around incremental CAC', 'Keep lookalikes, cut the weakest audiences, and judge success on holdout-measured cost per incremental customer, not platform ROAS.'],
+    [`Re-run the affiliate pilot at ~${Math.round(e3.required_n/1000)}k users per arm`, 'The first pilot could not separate a zero effect from a large one. Exclude coupon sites, whose customers churn fastest.'],
+    ['Roll the onboarding email series out to all trials', 'Proven at 30, 90 and 180 days. Add a 6-month holdout group to keep measuring how long the effect lasts.'],
+  ].map(([b, s]) => `<li><div><b>${b}</b><span>${s}</span></div></li>`).join('');
+}
+
+/* ---------- SVG forest plots ---------- */
+const tip = $('#tip');
+function showTip(ev, html){ tip.innerHTML = html; tip.style.opacity = 1; const x = Math.min(ev.clientX + 14, window.innerWidth - 270); tip.style.left = x + 'px'; tip.style.top = (ev.clientY + 14) + 'px'; }
+function hideTip(){ tip.style.opacity = 0; }
+
+function forest(svg, rows, o){
+  const W = svg.parentElement.clientWidth || 500, labW = Math.min(o.labW || 170, W * 0.42), valW = 78, rowH = o.rowH || 38, top = 8, bot = 28;
+  const H = top + rows.length * rowH + bot, x0 = labW, x1 = W - valW;
+  const lo = o.min, hi = o.max, sx = (v) => x0 + (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo) * (x1 - x0);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('height', H);
+  let s = '';
+  (o.ticks || []).forEach(t => { s += `<line class="axis" x1="${sx(t)}" x2="${sx(t)}" y1="${top}" y2="${H-bot+4}"/><text x="${sx(t)}" y="${H-8}" text-anchor="middle" class="val">${o.fmtTick(t)}</text>`; });
+  if (o.ref != null) s += `<line class="zero" x1="${sx(o.ref)}" x2="${sx(o.ref)}" y1="${top}" y2="${H-bot+4}"/>`;
+  rows.forEach((r, i) => {
+    const y = top + i * rowH + rowH / 2, c = r.color || css('--accent');
+    s += `<text x="0" y="${y - (r.sub ? 4 : -4)}" class="lab">${r.label}</text>`;
+    if (r.sub) s += `<text x="0" y="${y + 11}" style="font-size:11px;fill:var(--muted)">${r.sub}</text>`;
+    s += `<rect x="${sx(r.lo)}" y="${y-3}" width="${Math.max(2, sx(r.hi) - sx(r.lo))}" height="6" rx="3" fill="${c}" opacity="${r.faded ? .35 : .8}"/>`;
+    s += `<circle cx="${sx(r.v)}" cy="${y}" r="5.5" fill="${c}" stroke="var(--surface)" stroke-width="2"/>`;
+    if (r.mark != null) s += `<path d="M${sx(r.mark)} ${y-7}l7 7-7 7-7-7z" fill="var(--ink)" stroke="var(--surface)" stroke-width="2"/>`;
+    s += `<text x="${W}" y="${y+4}" text-anchor="end" class="val">${r.valText}</text>`;
+    s += `<rect class="hit" x="0" y="${y - rowH/2}" width="${W}" height="${rowH}" data-i="${i}"/>`;
+  });
+  svg.innerHTML = s;
+  svg.querySelectorAll('.hit').forEach(h => { h.addEventListener('mousemove', ev => showTip(ev, rows[+h.dataset.i].tip)); h.addEventListener('mouseleave', hideTip); });
+}
+
+function renderForests(){
+  const pctTick = (t) => (t > 0 ? '+' : '') + Math.round(t*100) + '%';
+  forest($('#f-lift'), D.experiments.map(e => ({
+    label: lab(e.channel), sub: e.type, v: e.rel_lift, lo: e.lo, hi: e.hi, color: col(e.channel), faded: !e.significant,
+    valText: e.significant ? spct(e.rel_lift,0) : 'n.s.',
+    tip: `<b>${e.name}</b><br>Lift ${spct(e.rel_lift)} (95% CI ${spct(e.lo,0)} to ${spct(e.hi,0)})<br>p = ${e.p.toFixed(4)} · ${e.significant ? 'significant' : 'not significant'}`
+  })), {min:-0.2, max:0.75, ticks:[-0.2,0,0.25,0.5,0.75], ref:0, fmtTick:pctTick});
+
+  const lifeRev = D.lifecycle.filter(r => r.kind === 'per_user_usd').concat(D.lifecycle.filter(r => r.kind === 'rate' && r.horizon === 30));
+  forest($('#f-life'), lifeRev.map(r => ({
+    label: r.metric.replace(', per assigned user','').replace('Revenue per assigned user','Revenue / user'), sub: null, v: r.rel, lo: r.lo, hi: r.hi, color: css('--accent'),
+    valText: spct(r.rel), tip: `<b>${r.metric}</b><br>Control ${r.kind === 'rate' ? pct(r.control,1) : usd(r.control,2)} → treatment ${r.kind === 'rate' ? pct(r.treatment,1) : usd(r.treatment,2)}<br>Lift ${spct(r.rel)} (95% CI ${spct(r.lo)} to ${spct(r.hi)})`
+  })), {min:0, max:0.15, ticks:[0,0.05,0.1,0.15], ref:0, fmtTick:pctTick, rowH:34});
+
+  const cal = D.mmm.calibration.slice().sort((a, b) => D.paid.indexOf(a.id) - D.paid.indexOf(b.id));
+  forest($('#f-cal'), cal.map(c => ({
+    label: lab(c.id), sub: `vs ${c.exp}${c.exp_sig ? '' : ' (n.s.)'}`, v: c.mmm, lo: c.lo, hi: c.hi, mark: c.exp_roas, color: col(c.id),
+    valText: x2(c.mmm, 2), tip: `<b>${lab(c.id)}</b><br>MMM return per $1: ${c.mmm.toFixed(2)} (90% ${c.lo.toFixed(2)}–${c.hi.toFixed(2)})<br>Experiment ${c.exp}: ${c.exp_roas.toFixed(2)}<br>${c.reading}`
+  })), {min:-0.1, max:1.8, ticks:[0,0.5,1,1.5], ref:0, fmtTick:(t) => t.toFixed(1)});
+
+  forest($('#f-scen'), D.mmm.scenarios.filter(s => !s.name.startsWith('current')).map(s => ({
+    label: s.name.replace('optimised','Optimised').replace('equal split','Equal split'), sub: `${usd(s.budget)}/wk budget`, v: s.delta, lo: s.lo, hi: s.hi,
+    color: s.delta >= 0 ? css('--accent') : css('--s-organic'), valText: (s.delta >= 0 ? '+' : '−') + usd(Math.abs(s.delta)),
+    tip: `<b>${s.name}</b><br>Δ new MRR ${usd(s.delta)}/week (90% ${usd(s.lo)} to ${usd(s.hi)})<br>${pct(s.prob)} of bootstrap fits beat current<br>Search ${usd(s.spend.paid_search)} · Social ${usd(s.spend.paid_social)} · Display ${usd(s.spend.display)} · Affiliate ${usd(s.spend.affiliate)}`
+  })), {min:-1100, max:1600, ticks:[-1000,-500,0,500,1000,1500], ref:0, fmtTick:(t) => (t > 0 ? '+' : t < 0 ? '−' : '') + '$' + Math.abs(t)});
+}
+
+/* ---------- Chart.js charts ---------- */
+const charts = [];
+const refLines = {
+  id:'refLines',
+  afterDraw(c, a, opts){
+    if (!opts || !opts.lines) return;
+    const {ctx, chartArea:ca, scales} = c;
+    opts.lines.forEach(l => {
+      const sc = scales[l.axis]; const p = sc.getPixelForValue(l.value);
+      ctx.save(); ctx.strokeStyle = css('--muted'); ctx.setLineDash([4,4]); ctx.lineWidth = 1; ctx.beginPath();
+      if (l.axis === 'x') { ctx.moveTo(p, ca.top); ctx.lineTo(p, ca.bottom); } else { ctx.moveTo(ca.left, p); ctx.lineTo(ca.right, p); }
+      ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = css('--muted'); ctx.font = '11px Inter, system-ui, sans-serif';
+      if (l.axis === 'x') { ctx.textAlign = 'left'; ctx.fillText(l.label, p + 4, ca.top + 10); } else { ctx.textAlign = 'right'; ctx.fillText(l.label, ca.right, p - 4); }
+      ctx.restore();
+    });
+  }
+};
+const band = {
+  id:'band',
+  beforeDatasetsDraw(c, a, opts){
+    if (!opts || opts.from == null) return;
+    const {ctx, chartArea:ca, scales:{x}} = c;
+    const x0 = x.getPixelForValue(opts.from) - (opts.half ? x.width / x.ticks.length / 2 : 0);
+    ctx.save(); ctx.fillStyle = css('--surface-2'); ctx.fillRect(x0, ca.top, ca.right - x0, ca.bottom - ca.top); ctx.restore();
+  }
+};
+
+function baseOpts(extra){
+  const ink2 = css('--ink-2'), grid = css('--line'), muted = css('--muted');
+  return Chart.helpers.merge({
+    responsive:true, maintainAspectRatio:false, animation:false,
+    interaction:{mode:'index', intersect:false},
+    plugins:{legend:{display:false}, tooltip:{backgroundColor:css('--ink'), titleColor:css('--bg'), bodyColor:css('--bg'), padding:10, cornerRadius:6, boxPadding:4, usePointStyle:true}},
+    scales:{
+      x:{grid:{display:false}, border:{color:grid}, ticks:{color:muted, font:{size:11}, maxRotation:0, autoSkipPadding:14}},
+      y:{grid:{color:grid}, border:{display:false}, ticks:{color:muted, font:{size:11}}, beginAtZero:true}
+    }
+  }, extra || {});
+}
+
+function mk(id, cfg){ const c = new Chart(document.getElementById(id), cfg); charts.push(c); return c; }
+
+function renderCharts(){
+  charts.splice(0).forEach(c => c.destroy());
+  Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
+  const P = D.paid, paidCh = P.map(ch);
+  const bar = {borderRadius:4, borderSkipped:'start', maxBarThickness:28};
+
+  mk('c-ltvcac', {type:'bar', plugins:[refLines], data:{labels:paidCh.map(c => c.label), datasets:[{data:paidCh.map(c => c.ltv_cac), backgroundColor:P.map(col), ...bar}]},
+    options:baseOpts({indexAxis:'y', interaction:{mode:'nearest', axis:'y', intersect:false}, scales:{x:{grid:{color:css('--line')}, ticks:{callback:(v) => v + '×'}, max:4.5}, y:{grid:{display:false}, ticks:{color:css('--ink-2'), font:{size:12}}}},
+      plugins:{refLines:{lines:[{axis:'x', value:1, label:'break-even'}, {axis:'x', value:3, label:'scale bar'}]}, tooltip:{callbacks:{label:(t) => { const c = paidCh[t.dataIndex]; return [` LTV:CAC ${x2(c.ltv_cac,2)}`, ` 36-mo GP LTV ${usd(c.ltv_gp_36m)} · loaded CAC ${usd(c.cac_loaded)}`, ` Payback ${c.payback_months ? c.payback_months + ' months' : 'not reached'}`]; }}}}})});
+
+  mk('c-cac', {type:'bar', data:{labels:paidCh.map(c => c.label), datasets:[
+      {label:'Media only', data:paidCh.map(c => c.cac), backgroundColor:css('--s-organic'), ...bar},
+      {label:'Fully loaded', data:paidCh.map(c => c.cac_loaded), backgroundColor:css('--accent'), ...bar}]},
+    options:baseOpts({scales:{y:{ticks:{callback:(v) => '$' + v}}}, plugins:{tooltip:{callbacks:{label:(t) => ` ${t.dataset.label}: ${usd(t.raw)}`}}}})});
+
+  const M = D.monthly, mLabels = M.months.map(m => { const [y, mo] = m.split('-'); return new Date(+y, +mo-1, 1).toLocaleString('en-US', {month:'short'}) + (mo === '01' ? " '" + y.slice(2) : ''); });
+  $('#lg-spend').innerHTML = P.map(id => `<span><i style="background:${col(id)}"></i>${lab(id)}</span>`).join('');
+  mk('c-spend', {type:'bar', data:{labels:mLabels, datasets:P.map(id => ({label:lab(id), data:M.spend[id], backgroundColor:col(id), borderColor:css('--surface'), borderWidth:{top:1}, borderRadius:0, maxBarThickness:22}))},
+    options:baseOpts({scales:{x:{stacked:true, ticks:{autoSkip:true, maxTicksLimit:9}}, y:{stacked:true, ticks:{callback:(v) => usdk(v)}}},
+      plugins:{tooltip:{callbacks:{title:(t) => M.months[t[0].dataIndex], label:(t) => ` ${t.dataset.label}: ${usd(t.raw)}`, footer:(t) => 'Total ' + usd(t.reduce((a, b) => a + b.raw, 0)) + ' · CAC ' + usd(M.cac[t[0].dataIndex])}}}})});
+
+  const line = (label, data, color, extra) => ({label, data, borderColor:color, backgroundColor:color, borderWidth:2, pointRadius:0, pointHoverRadius:5, tension:.25, ...extra});
+  mk('c-cust', {type:'line', data:{labels:mLabels, datasets:[line('Paid channels', M.cust_paid, col('paid_search')), line('Organic & owned', M.cust_org, col('organic_owned'))]},
+    options:baseOpts({scales:{x:{ticks:{maxTicksLimit:9}}}, plugins:{tooltip:{callbacks:{title:(t) => M.months[t[0].dataIndex], label:(t) => ` ${t.dataset.label}: ${int(t.raw)}`}}}})});
+
+  const groups = [...P, 'organic_owned'];
+  const fs = D.funnel.stages, stepLab = ['Visit → pricing', 'Pricing → start signup', 'Start → finish signup', 'Signup → trial', 'Trial → paid'];
+  $('#lg-funnel').innerHTML = groups.map(g => `<span><i style="background:${col(g)}"></i>${lab(g)}</span>`).join('');
+  mk('c-funnel', {type:'bar', data:{labels:stepLab, datasets:groups.map(g => { const v = D.funnel.by[g]; return {label:lab(g), data:v.slice(1).map((x, i) => x / v[i]), backgroundColor:col(g), borderRadius:3, borderSkipped:'start', maxBarThickness:14}; })},
+    options:baseOpts({scales:{x:{ticks:{font:{size:10.5}, autoSkip:false}}, y:{max:1, ticks:{callback:(v) => Math.round(v*100) + '%'}}}, plugins:{tooltip:{callbacks:{label:(t) => ` ${t.dataset.label}: ${pct(t.raw,1)}`}}}})});
+
+  $('#lg-ret').innerHTML = groups.map(g => `<span><i class="line" style="background:${col(g)}"></i>${lab(g)}</span>`).join('');
+  const rLen = Math.max(...groups.map(g => D.retention[g].length));
+  mk('c-ret', {type:'line', data:{labels:[...Array(rLen).keys()].map(m => m === 0 ? 'Start' : 'M' + m), datasets:groups.map(g => line(lab(g), D.retention[g], col(g), {borderDash:g === 'organic_owned' ? [5,4] : []}))},
+    options:baseOpts({scales:{x:{ticks:{maxTicksLimit:9}}, y:{min:0, max:1, ticks:{callback:(v) => Math.round(v*100) + '%'}}}, plugins:{tooltip:{itemSort:(a, b) => b.raw - a.raw, callbacks:{title:(t) => t[0].dataIndex === 0 ? 'Month of first payment' : `${t[0].dataIndex} months after first payment`, label:(t) => ` ${t.dataset.label}: ${pct(t.raw,1)}`}}}})});
+
+  const ex = D.experiments;
+  mk('c-roas', {type:'bar', data:{labels:ex.map(e => [lab(e.channel), e.id]), datasets:[
+      {label:'Attributed', data:ex.map(e => e.attributed_roas), backgroundColor:css('--s-organic'), ...bar},
+      {label:'Incremental', data:ex.map(e => Math.max(0, e.incremental_roas)), backgroundColor:css('--accent'), ...bar}]},
+    options:baseOpts({plugins:{refLines:{lines:[{axis:'y', value:1, label:'$1 back per $1'}]}, tooltip:{callbacks:{label:(t) => { const e = ex[t.dataIndex]; const v = t.datasetIndex ? e.incremental_roas : e.attributed_roas; return v == null ? ` ${t.dataset.label}: not measured (geo test)` : ` ${t.dataset.label}: ${v.toFixed(2)}`; }}}}, scales:{x:{ticks:{color:css('--ink-2')}}, y:{ticks:{callback:(v) => v.toFixed(1)}}}}), plugins:[refLines]});
+
+  const G = D.geo_weekly, gStart = G.weeks.indexOf(G.test_start);
+  mk('c-geo', {type:'line', plugins:[band, refLines], data:{labels:G.weeks.map(w => new Date(w + 'T00:00').toLocaleString('en-US', {month:'short', day:'numeric'})), datasets:[line('Treatment regions', G.treatment, col('paid_search'), {pointRadius:2.5}), line('Control regions', G.control, col('organic_owned'), {pointRadius:2.5})]},
+    options:baseOpts({scales:{x:{ticks:{maxTicksLimit:6}}, y:{beginAtZero:false, ticks:{callback:(v) => v.toFixed(2)}}}, plugins:{band:{from:gStart, half:true}, refLines:{lines:[{axis:'y', value:1, label:''}]}, tooltip:{callbacks:{title:(t) => 'Week of ' + G.weeks[t[0].dataIndex] + (t[0].dataIndex >= gStart ? ' · test' : ' · pre-period'), label:(t) => ` ${t.dataset.label}: ${t.raw.toFixed(3)}`}}}})});
+
+  const models = ['first_touch', 'position_based', 'linear', 'last_touch'], mName = {first_touch:'First touch', last_touch:'Last touch', linear:'Linear', position_based:'Position-based (40/20/40)'};
+  const ramp = ['#0d6b70', '#3f9396', '#7db8ba', '#b5d6d7'], rampD = ['#5cc0c2', '#3f9a9c', '#2b7476', '#1d5254'];
+  const dark = css('color-scheme') === 'dark' || document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+  const R = dark ? rampD : ramp;
+  $('#lg-att').innerHTML = models.map((m, i) => `<span><i style="background:${R[i]}"></i>${mName[m]}</span>`).join('');
+  mk('c-att', {type:'bar', data:{labels:P.map(lab), datasets:models.map((m, i) => ({label:mName[m], data:P.map(id => D.attribution[m][id]), backgroundColor:R[i], borderRadius:3, borderSkipped:'start', maxBarThickness:22}))},
+    options:baseOpts({plugins:{tooltip:{callbacks:{label:(t) => ` ${t.dataset.label}: ${int(t.raw)} customers`}}}})});
+
+  const F = D.mmm.fit, fStart = F.weeks.indexOf(F.test_start);
+  mk('c-fit', {type:'line', plugins:[band], data:{labels:F.weeks.map(w => w.slice(0,7)), datasets:[line('Actual', F.actual, col('organic_owned'), {borderWidth:1.5}), line('Fitted', F.fitted, css('--accent'))]},
+    options:baseOpts({scales:{x:{ticks:{maxTicksLimit:7}}, y:{ticks:{callback:(v) => usdk(v)}}}, plugins:{band:{from:fStart}, tooltip:{callbacks:{title:(t) => 'Week of ' + F.weeks[t[0].dataIndex] + (t[0].dataIndex >= fStart ? ' · held out' : ''), label:(t) => ` ${t.dataset.label}: ${usd(t.raw)}`}}}})});
+
+  $('#lg-resp').innerHTML = P.map(id => `<span><i class="line" style="background:${col(id)}"></i>${lab(id)}</span>`).join('');
+  const ds = [];
+  P.forEach(id => {
+    const r = D.mmm.response[id], m = D.mmm.channels.find(c => c.id === id);
+    ds.push({type:'line', label:lab(id), data:r.x.map((x, i) => ({x, y:r.y[i]})), borderColor:col(id), backgroundColor:col(id), borderWidth:2, pointRadius:0, pointHoverRadius:4, tension:.3});
+    const yAt = r.x.reduce((best, x, i) => Math.abs(x - m.weekly_spend) < Math.abs(r.x[best] - m.weekly_spend) ? i : best, 0);
+    ds.push({type:'scatter', label:lab(id) + ' (current)', data:[{x:m.weekly_spend, y:r.y[yAt]}], backgroundColor:col(id), borderColor:css('--surface'), borderWidth:2, pointRadius:6, pointHoverRadius:8});
+  });
+  mk('c-resp', {data:{datasets:ds}, options:baseOpts({interaction:{mode:'nearest', intersect:false}, scales:{x:{type:'linear', max:12000, grid:{display:false}, ticks:{callback:(v) => usdk(v)}, title:{display:true, text:'Weekly spend', color:css('--muted'), font:{size:11}}}, y:{ticks:{callback:(v) => v >= 1000 ? '$' + (v/1000).toFixed(1) + 'k' : '$' + v}, title:{display:true, text:'Weekly new MRR', color:css('--muted'), font:{size:11}}}},
+    plugins:{tooltip:{callbacks:{title:() => '', label:(t) => ` ${t.dataset.label}: ${usd(t.raw.x)}/wk → ${usd(t.raw.y)} new MRR`}}}})});
+}
+
+function renderAll(){ renderText(); renderTables(); renderForests(); if (window.Chart) renderCharts(); }
+renderAll();
+
+/* re-render on theme and size changes */
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', renderAll);
+new MutationObserver(renderAll).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(renderForests, 150); });
+
+/* highlight the section in view */
+const links = [...document.querySelectorAll('.nav a')];
+const io = new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) links.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id)); }), {rootMargin:'-40% 0px -55% 0px'});
+document.querySelectorAll('section.band').forEach(s => io.observe(s));
+</script>
+
+</body>
+</html>
